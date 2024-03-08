@@ -1,6 +1,8 @@
 #include "noe.h"
 #include "noe_internal.h"
 
+#ifdef NOE_PLATFORM_LINUX
+
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -814,3 +816,5 @@ uint64_t GetTimeMilis(void)
 {
     return 0;
 }
+
+#endif // NOE_PLATFORM_LINUX
