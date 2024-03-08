@@ -37,6 +37,7 @@ int main(void)
 
     while(!WindowShouldClose()) {
         PollInputEvents();
+        if(IsKeyPressed(KEY_ESCAPE)) break;
         if(IsKeyDown(KEY_W)) y -= world_speed;
         if(IsKeyDown(KEY_A)) x -= world_speed;
         if(IsKeyDown(KEY_S)) y += world_speed;
@@ -45,7 +46,7 @@ int main(void)
         ClearBackground(WHITE);
         DrawTexture(texture, x, y, texture.width*10, texture.height*10);
         RenderFlush(shader);
-        SwapBufferGL();
+        RenderPresent();
     }
     
     DeinitApplication();

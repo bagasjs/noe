@@ -3,14 +3,59 @@
 
 #include "noe.h"
 
+#include "noe_platform_linux.h"
 
-/*******************************
- * Internal Types
- *******************************/
+typedef struct _InputManager {
+    struct {
+        char currentKeyState[MAXIMUM_KEYBOARD_KEYS];
+        char previousKeyState[MAXIMUM_KEYBOARD_KEYS];
+        int keyPressedQueue[MAXIMUM_KEYPRESSED_QUEUE];
+        int keyPressedQueueCount;
+    } keyboard;
 
-/**
- * Internal Application Configuration 
- */
+    struct {
+        char currentButtonState[MAXIMUM_MOUSE_BUTTONS];
+        char previousButtonState[MAXIMUM_MOUSE_BUTTONS];
+
+        Vector2 previousPosition;
+        Vector2 currentPosition;
+
+        Vector2 currentWheelMove;
+        Vector2 previousWheelMove;
+
+        Vector2 offset;
+        Vector2 scale;
+    } mouse;
+} _InputManager;
+
+typedef struct _RenderVertex {
+    struct { float x, y, z; } pos;
+    struct { float r, g, b, a; } color;
+    struct { float u, v; } texCoords;
+    float textureIndex;
+} _RenderVertex;
+
+typedef struct _BatchRendererState {
+    struct {
+        bool supportVAO;
+    } config;
+
+    uint32_t vaoID, vboID, eboID;
+    Shader defaultShader;
+    struct {
+        _RenderVertex data[MAXIMUM_BATCH_RENDERER_VERTICES];
+        uint32_t count;
+    } vertices;
+    struct {
+        uint32_t data[MAXIMUM_BATCH_RENDERER_ELEMENTS];
+        uint32_t count;
+    } elements;
+    struct {
+        uint32_t data[MAXIMUM_BATCH_RENDERER_ACTIVE_TEXTURES];
+        uint32_t count;
+    } activeTextureIDs;
+} _BatchRendererState;
+
 typedef struct _ApplicationConfig {
     struct {
         const char *title;
@@ -35,32 +80,19 @@ typedef struct _ApplicationConfig {
     } opengl;
 } _ApplicationConfig;
 
-/**
- * Internal Input Manager
- */
-typedef struct _InputManager {
-    struct {
-        char currentKeyState[MAXIMUM_KEYBOARD_KEYS];
-        char previousKeyState[MAXIMUM_KEYBOARD_KEYS];
-        int keyPressedQueue[MAXIMUM_KEYPRESSED_QUEUE];
-        int keyPressedQueueCount;
-    } keyboard;
+typedef struct _ApplicationState {
+    bool initialized;
+    _InputManager inputs;
+    _BatchRendererState renderer;
+    _PlatformState platform;
+} _ApplicationState;
 
-    struct {
-        char currentButtonState[MAXIMUM_MOUSE_BUTTONS];
-        char previousButtonState[MAXIMUM_MOUSE_BUTTONS];
+_ApplicationState *_GetApplicationState(const char *functionName);
 
-        Vector2 previousPosition;
-        Vector2 currentPosition;
-
-        Vector2 currentWheelMove;
-        Vector2 previousWheelMove;
-
-        Vector2 offset;
-        Vector2 scale;
-    } mouse;
-} _InputManager;
-
-_InputManager *getApplicationInputManager(void);
+// IMPLEMENT THIS IN EVERY PLATFORM
+bool _InitPlatform(_ApplicationState *app, _ApplicationConfig *config);
+void _DeinitPlatform(_ApplicationState *app);
+void _PollPlatformEvents(_ApplicationState *app);
+void _GLSwapBuffers(_ApplicationState *app);
 
 #endif // NOE_INTERNAL_H_

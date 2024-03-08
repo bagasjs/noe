@@ -1,7 +1,7 @@
 #include "noe.h"
-#include "noe_internal.h"
 
 #include <glad/glad.h>
+#include "noe_internal.h"
 
 #define NOMATH_IMPLEMENTATION
 #include "nomath.h"
@@ -55,64 +55,7 @@
     #define MODEL_MATRIX_SHADER_UNIFORM_NAME "u_Model"
 #endif // MODEL_MATRIX_SHADER_UNIFORM_NAME
 
-#ifndef MAXIMUM_SHADER_LOCS
-    #define MAXIMUM_SHADER_LOCS 16
-#endif
-#ifndef MAXIMUM_BATCH_RENDERER_VERTICES
-    #define MAXIMUM_BATCH_RENDERER_VERTICES (32*1024)
-#endif
-#ifndef MAXIMUM_BATCH_RENDERER_ELEMENTS
-    #define MAXIMUM_BATCH_RENDERER_ELEMENTS (64*1024)
-#endif
-#ifndef MAXIMUM_BATCH_RENDERER_ACTIVE_TEXTURES
-    #define MAXIMUM_BATCH_RENDERER_ACTIVE_TEXTURES 8
-#endif
-
-typedef struct _WindowState {
-    const char *title;
-    uint32_t width, height;
-
-    int defaultExitButton;
-    bool visible, resizable, fullScreen;
-    bool shouldClose;
-} _WindowState;
-
-typedef struct _RenderVertex {
-    struct { float x, y, z; } pos;
-    struct { float r, g, b, a; } color;
-    struct { float u, v; } texCoords;
-    float textureIndex;
-} _RenderVertex;
-
-typedef struct _BatchRendererState {
-    struct {
-        bool supportVAO;
-    } config;
-
-    uint32_t vaoID, vboID, eboID;
-    Shader defaultShader;
-    struct {
-        _RenderVertex data[MAXIMUM_BATCH_RENDERER_VERTICES];
-        uint32_t count;
-    } vertices;
-    struct {
-        uint32_t data[MAXIMUM_BATCH_RENDERER_ELEMENTS];
-        uint32_t count;
-    } elements;
-    struct {
-        uint32_t data[MAXIMUM_BATCH_RENDERER_ACTIVE_TEXTURES];
-        uint32_t count;
-    } activeTextureIDs;
-} _BatchRendererState;
-
-typedef struct _ApplicationState {
-    bool initialized;
-    _WindowState window;
-    _InputManager inputs;
-    _BatchRendererState renderer;
-} _ApplicationState;
-
-static _ApplicationConfig appConfig = {
+static _ApplicationConfig CONFIG = {
     .window.width = 800,
     .window.height = 600,
     .window.title = "Noe Window",
@@ -195,23 +138,11 @@ const char *StringFind(const char *haystack, const char *needle)
     return NULL; 
 }
 
-// Defined in noe_platform_xxx.c
-bool platformInit(const _ApplicationConfig *config);
-void platformDeinit(void);
-void platformPollEvent(_InputManager *inputs);
-void platformSetWindowTitle(const char *title);
-void platformSetWindowSize(uint32_t width, uint32_t height);
-void platformSetWindowVisible(bool isVisible);
-void platformSetWindowResizable(bool isResizable);
-void platformSetWindowFullscreen(bool isFullscreen);
-void SwapGLBuffer(void);
-uint64_t GetTimeMilis(void);
-
 bool initBatchRenderer(void)
 {
     gladLoadGL();
 
-    APP.renderer.config.supportVAO = appConfig.opengl.useCoreProfile;
+    APP.renderer.config.supportVAO = CONFIG.opengl.useCoreProfile;
     APP.renderer.vertices.count = 0;
     APP.renderer.elements.count = 0;
     APP.renderer.activeTextureIDs.count = 0;
@@ -251,15 +182,7 @@ bool InitApplication(void)
     if(APP.initialized) return false;
     TRACELOG(LOG_INFO, "Initializing application");
 
-    APP.window.title = appConfig.window.title;
-    APP.window.width = appConfig.window.width;
-    APP.window.height = appConfig.window.height;
-    APP.window.visible = appConfig.window.visible;
-    APP.window.resizable = appConfig.window.resizable;
-    APP.window.fullScreen = appConfig.window.fullScreen;
-    APP.window.shouldClose = false;
-    APP.window.defaultExitButton = KEY_ESCAPE;
-    if(!platformInit(&appConfig)) return false;
+    if(!_InitPlatform(&APP, &CONFIG)) return false;
 
 #ifndef NOE_PLATFORM_WINDOWS
     TRACELOG(LOG_INFO, "Initializing batch renderer (OpenGL)");
@@ -275,11 +198,11 @@ bool InitApplication(void)
     return true;
 }
 
-_InputManager *getApplicationInputManager(void)
+_ApplicationState *_GetApplicationState(const char *functionName)
 {
-    return &APP.inputs;
+    NOE_REQUIRE_INIT_OR_RETURN(NULL, "`%s()` requires you to call `InitApplication()`", functionName);
+    return &APP;
 }
-
 
 void DeinitApplication(void)
 {
@@ -287,94 +210,13 @@ void DeinitApplication(void)
 #ifndef NOE_PLATFORM_WIN32
     deinitBatchRenderer();
 #endif
-    platformDeinit();
-}
-
-void SetWindowTitle(const char *title)
-{
-    NOE_REQUIRE_INIT_OR_RETURN_VOID("`SetWindowTitle()` requires you to call `InitApplication()`");
-#ifdef NOE_PLATFORM_DESKTOP
-    APP.window.title = title;
-    platformSetWindowTitle(title);
-#else
-    TRACELOG(LOG_ERROR, "`SetWindowTitle()` only works on Desktop Platform");
-#endif
-}
-
-void SetWindowSize(uint32_t width, uint32_t height)
-{
-#ifndef NOE_PLATFORM_DESKTOP
-    TRACELOG(LOG_ERROR, "`SetWindowVisible()` only works on Desktop Platform");
-#else
-    NOE_REQUIRE_INIT_OR_RETURN_VOID("`SetWindowSize()` requires you to call `InitApplication()`");
-    APP.window.width = width;
-    APP.window.height = height;
-#endif
-}
-
-void SetWindowVisible(bool isVisible)
-{
-#ifndef NOE_PLATFORM_DESKTOP
-    TRACELOG(LOG_ERROR, "`SetWindowVisible()` only works on Desktop Platform");
-#else
-    NOE_REQUIRE_INIT_OR_RETURN_VOID("`SetWindowVisible()` requires you to call `InitApplication()`");
-    APP.window.visible = isVisible;
-    platformSetWindowVisible(isVisible);
-#endif
-}
-
-void SetWindowResizable(bool isResizable)
-{
-#ifndef NOE_PLATFORM_DESKTOP
-    TRACELOG(LOG_ERROR, "`SetWindowResizable()` only works on Desktop Platform");
-#else
-    NOE_REQUIRE_INIT_OR_RETURN_VOID("`SetWindowResizable()` requires you to call `InitApplication()`");
-    APP.window.resizable = isResizable;
-    platformSetWindowResizable(isResizable);
-#endif
-}
-
-void SetWindowFullscreen(bool isFullscreen)
-{
-#ifndef NOE_PLATFORM_DESKTOP
-    TRACELOG(LOG_ERROR, "`SetWindowFullscreen()` only works on Desktop Platform");
-#else
-    NOE_REQUIRE_INIT_OR_RETURN_VOID("`SetWindowFullscreen()` requires you to call `InitApplication()`");
-    APP.window.fullScreen = isFullscreen;
-#endif
-}
-
-bool IsWindowVisible(void)
-{
-#ifndef NOE_PLATFORM_DESKTOP
-    TRACELOG(LOG_WARNING, "`IsWindowVisible()` is only available on Desktop platform");
-    return false;
-#endif
-    return APP.window.visible;
-}
-
-bool IsWindowResizable(void)
-{
-#ifndef NOE_PLATFORM_DESKTOP
-    TRACELOG(LOG_WARNING, "`IsWindowResizable()` is only available on Desktop platform");
-    return false;
-#endif
-    return APP.window.resizable;
-}
-
-bool IsWindowFullscreen(void)
-{
-#ifndef NOE_PLATFORM_DESKTOP
-    TRACELOG(LOG_WARNING, "`IsWindowFullscreen()` is only available on Desktop platform");
-    return false;
-#endif
-    return APP.window.fullScreen;
+    _DeinitPlatform(&APP);
 }
 
 void PollInputEvents(void)
 {
     NOE_REQUIRE_INIT_OR_RETURN_VOID("`PollInputEvents()` requires you to call `InitApplication()`");
-    APP.window.shouldClose = false;
+    APP.platform.window.shouldClose = false;
     if(!APP.initialized) return;
     APP.inputs.keyboard.keyPressedQueueCount = 0;
 
@@ -384,27 +226,25 @@ void PollInputEvents(void)
     for (int i = 0; i < MAXIMUM_MOUSE_BUTTONS; i++) 
         APP.inputs.mouse.previousButtonState[i] = APP.inputs.mouse.currentButtonState[i];
 
-    // APP.inputs.mouse.previousPosition = APP.inputs.mouse.currentPosition;
-    // APP.inputs.mouse.currentPosition = (Vector2){ 0.0f, 0.0f };
+    APP.inputs.mouse.previousPosition = APP.inputs.mouse.currentPosition;
+    APP.inputs.mouse.currentPosition = CLITERAL(Vector2){ .x=0.0f, .y=0.0f };
 
-    // APP.inputs.mouse.previousWheelMove = APP.inputs.mouse.currentWheelMove;
-    // APP.inputs.mouse.currentWheelMove = (Vector2){ 0.0f, 0.0f };
+    APP.inputs.mouse.previousWheelMove = APP.inputs.mouse.currentWheelMove;
+    APP.inputs.mouse.currentWheelMove = CLITERAL(Vector2){ .x=0.0f, .y=0.0f };
 
-    if(IsKeyDown(KEY_ESCAPE)) SetWindowShouldClose(true);
-
-    platformPollEvent(&APP.inputs);
+    _PollPlatformEvents(&APP);
 }
 
 void SetWindowShouldClose(bool shouldClose)
 {
     NOE_REQUIRE_INIT_OR_RETURN_VOID("`SetWindowShouldClose()` requires you to call `InitApplication()`");
-    APP.window.shouldClose = shouldClose;
+    APP.platform.window.shouldClose = shouldClose;
 }
 
 bool WindowShouldClose(void)
 {
     NOE_REQUIRE_INIT_OR_RETURN(true, "`WindowShouldClose()` requires you to call `InitApplication()`");
-    return APP.window.shouldClose;
+    return APP.platform.window.shouldClose;
 }
 
 bool IsKeyPressed(int key)
@@ -451,21 +291,31 @@ bool IsKeyUp(int key)
 
 void SetupOpenGL(uint32_t versionMajor, uint32_t versionMinor, uint32_t flags)
 {
-    appConfig.opengl.version.major = versionMajor;
-    appConfig.opengl.version.major = versionMinor;
+    CONFIG.opengl.version.major = versionMajor;
+    CONFIG.opengl.version.major = versionMinor;
     (void)flags;
 }
 
 void SetupWindow(const char *title, uint32_t width, uint32_t height, uint32_t flags)
 {
-    appConfig.window.title = title;
-    appConfig.window.width = width;
-    appConfig.window.height = height;
+    CONFIG.window.title = title;
+    CONFIG.window.width = width;
+    CONFIG.window.height = height;
     if(flags == 0) flags = WINDOW_SETUP_VISIBLE | WINDOW_SETUP_DECORATED;
-    appConfig.window.resizable = FLAG_CHECK(WINDOW_SETUP_RESIZABLE, flags) ? 1 : 0;
-    appConfig.window.fullScreen = FLAG_CHECK(WINDOW_SETUP_FULLSCREEN, flags) ? 1 : 0;
-    appConfig.window.visible = FLAG_CHECK(WINDOW_SETUP_VISIBLE, flags) ? 1 : 0;
-    appConfig.window.decorated = FLAG_CHECK(WINDOW_SETUP_DECORATED, flags) ? 1 : 0;
+    CONFIG.window.resizable = FLAG_CHECK(WINDOW_SETUP_RESIZABLE, flags) ? 1 : 0;
+    CONFIG.window.fullScreen = FLAG_CHECK(WINDOW_SETUP_FULLSCREEN, flags) ? 1 : 0;
+    CONFIG.window.visible = FLAG_CHECK(WINDOW_SETUP_VISIBLE, flags) ? 1 : 0;
+    CONFIG.window.decorated = FLAG_CHECK(WINDOW_SETUP_DECORATED, flags) ? 1 : 0;
+}
+
+void GLSwapBuffers()
+{
+    _GLSwapBuffers(&APP);
+}
+
+void RenderPresent()
+{
+    _GLSwapBuffers(&APP);
 }
 
 void RenderClear(float r, float g, float b, float a)

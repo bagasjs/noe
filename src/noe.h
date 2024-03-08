@@ -19,36 +19,52 @@
     #error "Unsupported platform"
 #endif
 
-#ifdef NOE_PLATFORM_LINUX
-    #if !defined(NOE_LINUX_DISPLAY_X11) && !defined(NOE_LINUX_DISPLAY_WAYLAND)
-        #define NOE_LINUX_DISPLAY_X11
-    #endif
-#endif // NOE_PLATFORM_LINUX
+#if !defined(NOE_LINUX_DISPLAY_X11) && !defined(NOE_LINUX_DISPLAY_WAYLAND)
+#define NOE_LINUX_DISPLAY_X11
+#endif
 
 #ifndef MAXIMUM_KEYBOARD_KEYS
-    #define MAXIMUM_KEYBOARD_KEYS 512
+#define MAXIMUM_KEYBOARD_KEYS 512
 #endif
+
 #ifndef MAXIMUM_MOUSE_BUTTONS
-    #define MAXIMUM_MOUSE_BUTTONS 8
+#define MAXIMUM_MOUSE_BUTTONS 8
 #endif
+
 #ifndef MAXIMUM_KEYPRESSED_QUEUE
-    #define MAXIMUM_KEYPRESSED_QUEUE 16
+#define MAXIMUM_KEYPRESSED_QUEUE 16
+#endif
+
+#ifndef MAXIMUM_SHADER_LOCS
+#define MAXIMUM_SHADER_LOCS 16
+#endif
+
+#ifndef MAXIMUM_BATCH_RENDERER_VERTICES
+#define MAXIMUM_BATCH_RENDERER_VERTICES (32*1024)
+#endif
+
+#ifndef MAXIMUM_BATCH_RENDERER_ELEMENTS
+#define MAXIMUM_BATCH_RENDERER_ELEMENTS (64*1024)
+#endif
+
+#ifndef MAXIMUM_BATCH_RENDERER_ACTIVE_TEXTURES
+#define MAXIMUM_BATCH_RENDERER_ACTIVE_TEXTURES 8
 #endif
 
 #ifndef SIGN
-    #define SIGN(T, a) (((T)(a) > 0) - ((T)(a) < 0))
+#define SIGN(T, a) (((T)(a) > 0) - ((T)(a) < 0))
 #endif 
 
 #ifndef ABS
-    #define ABS(T, a) (SIGN(T, a) * a)
+#define ABS(T, a) (SIGN(T, a) * a)
 #endif
 
 #ifndef CAST
-    #define CAST(T, v) ((T)(v))
+#define CAST(T, v) ((T)(v))
 #endif 
 
 #ifndef BIT
-    #define BIT(pos) (1 << (pos))
+#define BIT(pos) (1 << (pos))
 #endif
 
 #ifndef TRACELOG
@@ -146,6 +162,10 @@ typedef struct Texture {
     uint32_t compAmount; // RGBA = 4, RGB = 3
 } Texture;
 
+typedef struct Font {
+    Texture texture;
+} Font;
+
 typedef struct Color {
     uint8_t r, g, b, a;
 } Color;
@@ -162,41 +182,25 @@ typedef struct Color {
 
 /// Non application dependent functions
 
-//
 const char *StringFind(const char *haystack, const char *needle);
 char *StringCopy(char *dst, const char *src, size_t length);
 size_t StringLength(const char *str);
 void *MemorySet(void *dst, int value, size_t length);
 void *MemoryCopy(void *dst, const void *src, size_t length);
-void *MemoryAlloc(size_t nBytes);
-void MemoryFree(void *ptr);
-void TraceLog(int logLevel, const char *fmt, ...);
+void *MemoryAlloc(size_t nBytes); // per platform
+void MemoryFree(void *ptr); // per platform
+uint64_t GetUnixTimestamp(void); // per platform
+void TraceLog(int logLevel, const char *fmt, ...); // per platform
 
+/// Application initialization & deinitialization
 
-/// Application configuration functions 
-
-//
 void SetupWindow(const char *title, uint32_t width, uint32_t height, uint32_t flags);
 void SetupOpenGL(uint32_t versionMajor, uint32_t versionMinor, uint32_t flags);
 bool InitApplication(void);
 void DeinitApplication(void);
 
-#ifndef NOE_SAFE_WIN32_INCLUDE
-void SetWindowTitle(const char *title);
-void SetWindowSize(uint32_t width, uint32_t height);
-void SetWindowVisible(bool isVisible);
-void SetWindowResizable(bool isResizable);
-void SetWindowFullscreen(bool isFullscreen);
-bool IsWindowVisible(void);
-bool IsWindowResizable(void);
-bool IsWindowFullscreen(void);
-#endif // NOE_SAFE_WIN32_INCLUDE
-
-uint64_t GetTimeMilis(void); // Get time elapsed in milisecond
-
 /// Event handling
 
-//
 void PollInputEvents(void);
 bool IsKeyPressed(int key);
 bool IsKeyReleased(int key);
@@ -207,8 +211,6 @@ bool IsMouseButtonReleased(int button);
 bool IsMouseButtonDown(int button);
 bool IsMouseButtonUp(int button);
 bool IsFrameResized(void);
-void SetWindowShouldClose(bool shouldClose);
-bool WindowShouldClose(void);
 
 /// Textures
 
@@ -228,11 +230,10 @@ void SetShaderUniform(Shader shader, int location, int uniformType, const void *
 int GetShaderUniformLocation(Shader shader, const char *uniformName);
 int GetShaderAttributeLocation(Shader shader, const char *attributeName);
 
-///
 /// Batch Renderer
-///
 
 void RenderClear(float r, float g, float b, float a);
+void RenderPresent(void);
 void RenderFlush(Shader shader);
 int RenderPutVertex(float x, float y, float z, float r, float g, float b, float a, float u, float v, int textureIndex);
 void RenderPutElement(int vertexIndex);
@@ -241,7 +242,6 @@ void RenderViewport(int x, int y, uint32_t width, uint32_t height);
 
 /// Drawing
 
-#ifndef NOE_SAFE_WIN32_INCLUDE
 void ClearBackground(Color color);
 void BeginDrawing(void);
 void EndDrawing(void);
@@ -250,15 +250,26 @@ void DrawTexture(Texture texture, int x, int y, uint32_t w, uint32_t h);
 void DrawTextureEx(Texture texture, Rectangle src, Rectangle dst);
 void DrawTriangle(Color color, int x1, int y1, int x2, int y2, int x3, int y3);
 void DrawCircle(Color color, int cx, int cy, uint32_t r);
-#endif // NOE_SAFE_WIN32_INCLUDE
-
 
 /// OpenGL
 
-//
-void SwapBufferGL(void);
-void *GetProcGL(const char *procName);
+void GLSwapBuffers(void);
+void GLGetProc(const char *procName);
 
+
+/// Desktop platform only
+
+void SetWindowTitle(const char *title);
+void SetWindowSize(uint32_t width, uint32_t height);
+void SetWindowVisible(bool isVisible);
+void SetWindowResizable(bool isResizable);
+void SetWindowFullscreen(bool isFullscreen);
+bool IsWindowVisible(void);
+bool IsWindowResizable(void);
+bool IsWindowFullscreen(void);
+
+void SetWindowShouldClose(bool shouldClose);
+bool WindowShouldClose(void);
 
 /*******************************
  * Enumerations

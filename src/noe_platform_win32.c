@@ -2,6 +2,8 @@
 #include "noe.h"
 #include "noe_internal.h"
 
+#ifdef NOE_PLATFORM_WINDOWS
+
 #include "windows.h"
 
 typedef struct _PlatformWindowState {
@@ -129,6 +131,7 @@ void platformPollEvent(_InputManager *inputs)
         }
     }
 }
+<<<<<<< HEAD
 
 void SwapBufferGL(void)
 {
@@ -485,3 +488,12 @@ uint64_t GetTimeMilis(void)
 {
     return 0;
 }
+=======
+void platformSetWindowTitle(const char *title);
+void platformSetWindowSize(uint32_t width, uint32_t height);
+void platformSetWindowVisible(bool isVisible);
+void platformSetWindowResizable(bool isResizable);
+void platformSetWindowFullscreen(bool isFullscreen);
+void SwapGLBuffer(void);
+
+#endif // NOE_PLATFORM_WINDOWS
