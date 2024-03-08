@@ -1,4 +1,5 @@
 #include "noe.h"
+#include "noe_internal.h"
 
 #include <stdlib.h>
 #include <stdarg.h>

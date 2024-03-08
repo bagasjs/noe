@@ -1,4 +1,5 @@
 #include "noe.h"
+#include "noe_internal.h"
 
 #include <glad/glad.h>
 
@@ -111,7 +112,7 @@ typedef struct _ApplicationState {
     _BatchRendererState renderer;
 } _ApplicationState;
 
-static _ApplicationConfig appConfig = CLITERAL(_ApplicationConfig) {
+static _ApplicationConfig appConfig = {
     .window.width = 800,
     .window.height = 600,
     .window.title = "Noe Window",
@@ -248,6 +249,7 @@ void deinitBatchRenderer(void)
 bool InitApplication(void)
 {
     if(APP.initialized) return false;
+    TRACELOG(LOG_INFO, "Initializing application");
 
     APP.window.title = appConfig.window.title;
     APP.window.width = appConfig.window.width;
@@ -258,16 +260,33 @@ bool InitApplication(void)
     APP.window.shouldClose = false;
     APP.window.defaultExitButton = KEY_ESCAPE;
     if(!platformInit(&appConfig)) return false;
-    if(!initBatchRenderer()) return false;
 
+#ifndef NOE_PLATFORM_WINDOWS
+    TRACELOG(LOG_INFO, "Initializing batch renderer (OpenGL)");
+    if(!initBatchRenderer()) {
+        TRACELOG(LOG_ERROR, "Initializing batch renderer failed (OpenGL)");
+        return false;
+    }
+    TRACELOG(LOG_INFO, "Initializing batch renderer success (OpenGL)");
+#endif
+
+    TRACELOG(LOG_INFO, "Initializing application success");
     APP.initialized = true;
     return true;
 }
 
+_InputManager *getApplicationInputManager(void)
+{
+    return &APP.inputs;
+}
+
+
 void DeinitApplication(void)
 {
     if(!APP.initialized) return;
+#ifndef NOE_PLATFORM_WIN32
     deinitBatchRenderer();
+#endif
     platformDeinit();
 }
 

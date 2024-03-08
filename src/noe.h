@@ -128,10 +128,12 @@ typedef union Matrix {
 } Matrix;
 #endif // NOMATH_TYPES
 
+#ifndef NOE_SAFE_WIN32_INCLUDE
 typedef struct Rectangle {
     int x, y;
     uint32_t width, height;
 } Rectangle;
+#endif // NOE_SAFE_WIN32_INCLUDE
 
 typedef struct Shader {
     uint32_t ID;
@@ -178,6 +180,8 @@ void SetupWindow(const char *title, uint32_t width, uint32_t height, uint32_t fl
 void SetupOpenGL(uint32_t versionMajor, uint32_t versionMinor, uint32_t flags);
 bool InitApplication(void);
 void DeinitApplication(void);
+
+#ifndef NOE_SAFE_WIN32_INCLUDE
 void SetWindowTitle(const char *title);
 void SetWindowSize(uint32_t width, uint32_t height);
 void SetWindowVisible(bool isVisible);
@@ -186,6 +190,7 @@ void SetWindowFullscreen(bool isFullscreen);
 bool IsWindowVisible(void);
 bool IsWindowResizable(void);
 bool IsWindowFullscreen(void);
+#endif // NOE_SAFE_WIN32_INCLUDE
 
 uint64_t GetTimeMilis(void); // Get time elapsed in milisecond
 
@@ -236,6 +241,7 @@ void RenderViewport(int x, int y, uint32_t width, uint32_t height);
 
 /// Drawing
 
+#ifndef NOE_SAFE_WIN32_INCLUDE
 void ClearBackground(Color color);
 void BeginDrawing(void);
 void EndDrawing(void);
@@ -244,6 +250,7 @@ void DrawTexture(Texture texture, int x, int y, uint32_t w, uint32_t h);
 void DrawTextureEx(Texture texture, Rectangle src, Rectangle dst);
 void DrawTriangle(Color color, int x1, int y1, int x2, int y2, int x3, int y3);
 void DrawCircle(Color color, int cx, int cy, uint32_t r);
+#endif // NOE_SAFE_WIN32_INCLUDE
 
 
 /// OpenGL
@@ -425,62 +432,5 @@ typedef enum NoeKeyMods {
     KEY_MOD_CAPSLOCK   = 0x0010,
     KEY_MOD_NUMLOCK    = 0x0020,
 } NoeKeyMods;
-
-/*******************************
- * Internal Types
- *******************************/
-
-/**
- * Internal Application Configuration 
- */
-typedef struct _ApplicationConfig {
-    struct {
-        const char *title;
-        uint32_t width, height;
-        bool visible;
-        bool resizable;
-        bool fullScreen;
-        bool decorated;
-    } window;
-    struct {
-        // The context creation will use GLX on Linux X11 Display System or WGL on Windows 
-        // otherwise It will use EGL
-        bool useNative;
-        bool useCoreProfile;
-        bool useOpenglES;
-        bool useDebugContext;
-        bool forward;
-        struct {
-            int major;
-            int minor;
-        } version;
-    } opengl;
-} _ApplicationConfig;
-
-/**
- * Internal Input Manager
- */
-typedef struct _InputManager {
-    struct {
-        char currentKeyState[MAXIMUM_KEYBOARD_KEYS];
-        char previousKeyState[MAXIMUM_KEYBOARD_KEYS];
-        int keyPressedQueue[MAXIMUM_KEYPRESSED_QUEUE];
-        int keyPressedQueueCount;
-    } keyboard;
-
-    struct {
-        char currentButtonState[MAXIMUM_MOUSE_BUTTONS];
-        char previousButtonState[MAXIMUM_MOUSE_BUTTONS];
-
-        Vector2 previousPosition;
-        Vector2 currentPosition;
-
-        Vector2 currentWheelMove;
-        Vector2 previousWheelMove;
-
-        Vector2 offset;
-        Vector2 scale;
-    } mouse;
-} _InputManager;
 
 #endif // NOE_H_
