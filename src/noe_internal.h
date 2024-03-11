@@ -2,7 +2,12 @@
 #define NOE_INTERNAL_H_
 
 #include "noe.h"
+
+#ifndef NOE_NATIVE_PLATFORM_API
+#include "noe_platform_desktop.h"
+#else
 #include "noe_platform_linux.h"
+#endif
 
 typedef struct _InputManager {
     struct {
@@ -93,5 +98,12 @@ bool _InitPlatform(_ApplicationState *app, _ApplicationConfig *config);
 void _DeinitPlatform(_ApplicationState *app);
 void _PollPlatformEvents(_ApplicationState *app);
 void _GLSwapBuffers(_ApplicationState *app);
+
+void SetWindowTitle(const char *title);
+void SetWindowSize(uint32_t width, uint32_t height);
+void SetWindowVisible(bool isVisible);
+void SetWindowResizable(bool isResizable);
+void SetWindowFullscreen(bool isFullscreen);
+
 
 #endif // NOE_INTERNAL_H_

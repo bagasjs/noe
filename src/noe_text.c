@@ -326,14 +326,6 @@ void DrawTextEx(TextFont font, const char *text, Vector2 position, float fontSiz
     }
 }
 
-GlyphInfo *GetCodepointGlyphInfo(TextFont font, int codepoint)
-{
-    // TODO: check unordered charset. If yes then iterate the whole glyphs and check the codepoint
-    GlyphInfo *result = NULL;
-    if(codepoint > 32) result = &font.glyphsInfo[codepoint - 32];
-    return result;
-}
-
 void UnloadFont(TextFont font)
 {
     UnloadTexture(font.texture);

@@ -248,6 +248,7 @@ bool IsMouseButtonReleased(int button);
 bool IsMouseButtonDown(int button);
 bool IsMouseButtonUp(int button);
 bool IsFrameResized(void);
+Vector2 GetCursorPos(void);
 
 /// Image
 
@@ -257,8 +258,7 @@ void UnloadImage(Image image);
 
 /// Text Font
 bool LoadFontEx(TextFont *font, const uint8_t *fontData, size_t dataSize, uint32_t fontSize, uint32_t bitmapWidth, uint32_t bitmapHeight, int codepointCount, int *codepoints);
-GlyphInfo *GetCodepointGlyphInfo(TextFont font, int codepoint);
-
+int GetGlyphIndex(TextFont font, int codepoint);
 bool LoadFontFromFile(TextFont *font, const char *filePath);
 void UnloadFont(TextFont font);
 

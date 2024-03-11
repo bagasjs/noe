@@ -5,7 +5,40 @@
 #define WIDTH 800
 #define HEIGHT 600
 
-bool SaveImagePNG(Image image, const char *filePath);
+void GLCheckLastError(int exitOnError);
+
+bool UI_Button(int x, int y, const char *text, TextFont font, int fontSize)
+{
+    Vector2 position = { .x=(float)x, .y=(float)y };
+
+    int defaultFontSize = 10;   // Default Font chars height in pixel
+    if (fontSize < defaultFontSize) fontSize = defaultFontSize;
+    int spacing = fontSize/defaultFontSize;
+
+    float scaleFactor = (float)fontSize/font.baseSize;
+
+    Rectangle rec;
+    rec.x = x;
+    rec.y = y;
+
+    size_t textLength = StringLength(text);
+
+    for(size_t i = 0; i < textLength; ++i) {
+        int index = GetGlyphIndex(font, text[i]);
+
+        if (font.glyphsInfo[index].advanceX == 0) rec.width += ((float)font.recs[index].width*scaleFactor + spacing);
+        else rec.width += ((float)font.glyphsInfo[index].advanceX*scaleFactor + spacing);
+    }
+
+    rec.height = fontSize;
+
+    DrawRectangle(RED, rec.x, rec.y, rec.width, rec.height);
+    DrawTextEx(font, text, position, (float)fontSize, (float)spacing, BLACK, 15);
+
+    Vector2 cpos = GetCursorPos();
+    return (rec.x <= cpos.x && cpos.x <= (rec.x + rec.width))
+        && (rec.y <= cpos.y && cpos.y <= (rec.y + rec.height));
+}
 
 int main(void)
 {
@@ -43,7 +76,9 @@ int main(void)
 
         ClearBackground(WHITE);
         DrawTexture(texture, x, y, texture.width*10, texture.height*10);
-        DrawText(font, "Hello", 10.0f, 10.0f, 32, RED);
+        if(UI_Button(10, 10, "Play", font, 24)) {
+            TRACELOG(LOG_INFO, "Clicked");
+        }
         RenderFlush(shader);
         RenderPresent();
     }

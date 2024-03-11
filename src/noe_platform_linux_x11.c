@@ -60,24 +60,6 @@ void SetWindowFullscreen(bool isFullscreen)
     app->platform.window.fullScreen = isFullscreen;
 }
 
-bool IsWindowVisible(void)
-{
-    _ApplicationState *app = _GetApplicationState("SetWindowTitle");
-    return app->platform.window.visible;
-}
-
-bool IsWindowResizable(void)
-{
-    _ApplicationState *app = _GetApplicationState("SetWindowTitle");
-    return app->platform.window.resizable;
-}
-
-bool IsWindowFullscreen(void)
-{
-    _ApplicationState *app = _GetApplicationState("SetWindowTitle");
-    return app->platform.window.fullScreen;
-}
-
 static bool stringInExtensionString(const char* string, const char* extensions)
 {
     const char* start = extensions;

@@ -150,6 +150,15 @@ bool initBatchRenderer(void)
     APP.renderer.elements.count = 0;
     APP.renderer.activeTextureIDs.count = 0;
 
+    if(APP.renderer.config.supportVAO) {
+        TRACELOG(LOG_INFO, "VAO is supported");
+        APP.renderer.config.supportVAO = true;
+        glGenVertexArrays(1, &APP.renderer.vaoID);
+    } else {
+        TRACELOG(LOG_INFO, "VAO is not supported");
+        APP.renderer.config.supportVAO = false;
+    }
+
     glGenBuffers(1, &APP.renderer.vboID);
     glBindBuffer(GL_ARRAY_BUFFER, APP.renderer.vboID);
     glBufferData(GL_ARRAY_BUFFER, sizeof(APP.renderer.vertices.data), NULL, GL_DYNAMIC_DRAW);
@@ -216,6 +225,24 @@ void DeinitApplication(void)
     _DeinitPlatform(&APP);
 }
 
+bool IsWindowVisible(void)
+{
+    _ApplicationState *app = _GetApplicationState("SetWindowTitle");
+    return app->platform.window.visible;
+}
+
+bool IsWindowResizable(void)
+{
+    _ApplicationState *app = _GetApplicationState("SetWindowTitle");
+    return app->platform.window.resizable;
+}
+
+bool IsWindowFullscreen(void)
+{
+    _ApplicationState *app = _GetApplicationState("SetWindowTitle");
+    return app->platform.window.fullScreen;
+}
+
 void PollInputEvents(void)
 {
     NOE_REQUIRE_INIT_OR_RETURN_VOID("`PollInputEvents()` requires you to call `InitApplication()`");
@@ -248,6 +275,11 @@ bool WindowShouldClose(void)
 {
     NOE_REQUIRE_INIT_OR_RETURN(true, "`WindowShouldClose()` requires you to call `InitApplication()`");
     return APP.platform.window.shouldClose;
+}
+
+Vector2 GetCursorPos(void)
+{
+    return APP.inputs.mouse.currentPosition;
 }
 
 bool IsKeyPressed(int key)
@@ -664,4 +696,34 @@ bool LoadShaderFromFile(Shader *shader, const char *vertSourceFilePath, const ch
     UnloadFileText(vertSource);
     UnloadFileText(fragSource);
     return result;
+}
+
+void GLCheckLastError(int exitOnError) 
+{
+    GLenum err = GL_NO_ERROR;
+    TRACELOG(LOG_DEBUG, "CHECKING OPENGL ERROR");
+    while((err = glGetError()) != GL_NO_ERROR) {
+        switch(err) {
+            case GL_INVALID_ENUM: 
+                TRACELOG(LOG_ERROR, "OPENGL ERROR: GL_INVALID_ENUM"); 
+                if(!exitOnError) { return; } else { break; }
+            case GL_INVALID_VALUE: 
+                TRACELOG(LOG_ERROR, "OPENGL ERROR: GL_INVALID_VALUE"); 
+                if(!exitOnError) { return; } else { break; }
+            case GL_INVALID_OPERATION: 
+                TRACELOG(LOG_ERROR, "OPENGL ERROR: GL_INVALID_OPERATION"); 
+                if(!exitOnError) { return; } else { break; }
+            case GL_OUT_OF_MEMORY: 
+                TRACELOG(LOG_ERROR, "OPENGL ERROR: GL_OUT_OF_MEMORY"); 
+                if(!exitOnError) { return; } else { break; }
+            case GL_INVALID_FRAMEBUFFER_OPERATION: 
+                TRACELOG(LOG_ERROR, "OPENGL ERROR: GL_INVALID_FRAMEBUFFER_OPERATION"); 
+                if(!exitOnError) { return; } else { break; }
+            default: 
+                TRACELOG(LOG_ERROR, "OPENGL ERROR: UNKNOWN"); 
+                if(!exitOnError) { return; } else { break; } 
+        }
+        if(exitOnError) ExitProgram(-1);
+    }
+    TRACELOG(LOG_DEBUG, "THERE'S NO ERROR");
 }
