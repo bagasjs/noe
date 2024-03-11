@@ -1,7 +1,6 @@
 #include "noe.h"
-#include "noe_internal.h"
 #include "noe_platform_linux.h"
-#include <GL/glx.h>
+#include "noe_internal.h"
 
 static void setupX11KeyMaps(_PlatformState *platform);
 

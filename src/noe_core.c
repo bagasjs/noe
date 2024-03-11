@@ -142,6 +142,9 @@ bool initBatchRenderer(void)
 {
     gladLoadGL();
 
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
     APP.renderer.config.supportVAO = CONFIG.opengl.useCoreProfile;
     APP.renderer.vertices.count = 0;
     APP.renderer.elements.count = 0;
@@ -187,7 +190,7 @@ bool InitApplication(void)
 #ifndef NOE_PLATFORM_WINDOWS
     TRACELOG(LOG_INFO, "Initializing batch renderer (OpenGL)");
     if(!initBatchRenderer()) {
-        TRACELOG(LOG_ERROR, "Initializing batch renderer failed (OpenGL)");
+        TRACELOG(LOG_FATAL, "Initializing batch renderer failed (OpenGL)");
         return false;
     }
     TRACELOG(LOG_INFO, "Initializing batch renderer success (OpenGL)");
@@ -441,8 +444,12 @@ bool LoadTexture(Texture *texture, const uint8_t *data, uint32_t width, uint32_t
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, 
-            compAmount== 4 ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE, data);
+    int internalFormat = GL_ALPHA;
+    if(compAmount == 4) internalFormat = GL_RGBA;
+    else if(compAmount == 3) internalFormat = GL_RGB;
+    else if(compAmount == 2) internalFormat = GL_RG;
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, internalFormat, GL_UNSIGNED_BYTE, data);
     glGenerateMipmap(GL_TEXTURE_2D);
 
     texture->height = height;
@@ -637,4 +644,24 @@ void SetShaderUniform(Shader shader, int location, int uniformType, const void *
             break;
     }
     glUseProgram(0);
+}
+
+const char *GetFileExtension(const char *filePath)
+{
+    return filePath;
+}
+
+const char *GetFileName(const char *filePath)
+{
+    return filePath;
+}
+
+bool LoadShaderFromFile(Shader *shader, const char *vertSourceFilePath, const char *fragSourceFilePath)
+{
+    char *vertSource = LoadFileText(vertSourceFilePath, NULL);
+    char *fragSource = LoadFileText(fragSourceFilePath, NULL);
+    bool result = LoadShader(shader, vertSource, fragSource);
+    UnloadFileText(vertSource);
+    UnloadFileText(fragSource);
+    return result;
 }

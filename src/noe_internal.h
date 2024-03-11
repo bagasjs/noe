@@ -2,7 +2,6 @@
 #define NOE_INTERNAL_H_
 
 #include "noe.h"
-
 #include "noe_platform_linux.h"
 
 typedef struct _InputManager {

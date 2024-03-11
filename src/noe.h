@@ -19,9 +19,9 @@
     #error "Unsupported platform"
 #endif
 
-#if !defined(NOE_LINUX_DISPLAY_X11) && !defined(NOE_LINUX_DISPLAY_WAYLAND)
-#define NOE_LINUX_DISPLAY_X11
-#endif
+#ifndef STATIC_ASSERT
+#define STATIC_ASSERT(COND) _Static_assert(COND, #COND)
+#endif // STATIC_ASSERT
 
 #ifndef MAXIMUM_KEYBOARD_KEYS
 #define MAXIMUM_KEYBOARD_KEYS 512
@@ -67,13 +67,6 @@
 #define BIT(pos) (1 << (pos))
 #endif
 
-#ifndef TRACELOG
-    #if !defined(NDEBUG) && !defined(NOE_BUILD_RELEASE)
-        #define TRACELOG(logLevel, ...) TraceLog(logLevel, __VA_ARGS__)
-    #else
-        #define TRACELOG(logLevel, ...) 
-    #endif
-#endif
 #ifndef CLITERAL
     #ifdef __cplusplus
         #define CLITERAL(T) T
@@ -86,6 +79,16 @@
 #define FLAG_CLEAR(n, f) ((n) &= ~(f))
 #define FLAG_TOGGLE(n, f) ((n) ^= (f))
 #define FLAG_CHECK(n, f) ((n) & (f))
+
+#ifndef TRACELOG
+    #if !defined(NDEBUG) && !defined(NOE_BUILD_RELEASE)
+        #define TRACELOG(logLevel, ...) TraceLog(logLevel, __VA_ARGS__)
+    #else
+        #define TRACELOG(logLevel, ...) 
+    #endif
+#endif
+
+#define COLOR2VECTOR4(c) ((float)(c).r/255.0f),((float)(c).g/255.0f),((float)(c).b/255.0f),((float)(c).a/255.0f)
 
 /*******************************
  * Structs & Types
@@ -145,30 +148,53 @@ typedef union Matrix {
 #endif // NOMATH_TYPES
 
 #ifndef NOE_SAFE_WIN32_INCLUDE
+
 typedef struct Rectangle {
-    int x, y;
-    uint32_t width, height;
+    float x, y;
+    float width, height;
 } Rectangle;
 #endif // NOE_SAFE_WIN32_INCLUDE
+
+typedef struct Image {
+    uint8_t *data;
+    uint32_t width, height;
+    uint32_t compAmount;
+} Image;
+
+typedef struct Color {
+    uint8_t r, g, b, a;
+} Color;
 
 typedef struct Shader {
     uint32_t ID;
     int *locs;
 } Shader;
 
+// Basically stbtt_bakedchar
 typedef struct Texture {
     uint32_t ID;
     uint32_t width, height;
     uint32_t compAmount; // RGBA = 4, RGB = 3
 } Texture;
 
-typedef struct Font {
-    Texture texture;
-} Font;
+typedef struct GlyphInfo {
+    int codepoint;
 
-typedef struct Color {
-    uint8_t r, g, b, a;
-} Color;
+    int offsetX;
+    int offsetY;
+    int advanceX;
+    Image image;
+} GlyphInfo;
+
+typedef struct TextFont {
+    Texture texture;
+    Image atlas;
+    GlyphInfo *glyphsInfo;
+    Rectangle *recs;
+    uint32_t glyphsCount;
+    uint32_t baseSize;
+    float glyphPadding;
+} TextFont;
 
 #define WHITE CLITERAL(Color){ .r = 0xFF, .g=0xFF, .b=0xFF, .a=0xFF }
 #define BLACK CLITERAL(Color){ .r = 0x00, .g=0x00, .b=0x00, .a=0xFF }
@@ -180,21 +206,31 @@ typedef struct Color {
  * Functions
  *******************************/
 
-/// Non application dependent functions
+/// Utility functions
 
 const char *StringFind(const char *haystack, const char *needle);
 char *StringCopy(char *dst, const char *src, size_t length);
 size_t StringLength(const char *str);
 void *MemorySet(void *dst, int value, size_t length);
 void *MemoryCopy(void *dst, const void *src, size_t length);
-void *MemoryAlloc(size_t nBytes); // per platform
-void MemoryFree(void *ptr); // per platform
-uint64_t GetUnixTimestamp(void); // per platform
-void TraceLog(int logLevel, const char *fmt, ...); // per platform
+const char *GetFileExtension(const char *filePath);
+const char *GetFileName(const char *filePath);
+
+/// Platform core functions (required in every platform except file IO in web)
+
+void *MemoryAlloc(size_t nBytes); 
+void MemoryFree(void *ptr); 
+void ExitProgram(int status);
+uint64_t GetUnixTimestamp(void); 
+void TraceLog(int logLevel, const char *fmt, ...);
+char *LoadFileText(const char *filePath, size_t *fileSize); // not implemented on web
+void UnloadFileText(char *text); // not implemented on web
+uint8_t *LoadFileData(const char *filePath, size_t *fileSize); // not implemented on web
+void UnloadFileData(uint8_t *data); // not implemented on web
 
 /// Application initialization & deinitialization
 
-void SetupWindow(const char *title, uint32_t width, uint32_t height, uint32_t flags);
+void SetupWindow(const char *title, uint32_t width, uint32_t height, uint32_t flags); // desktop only
 void SetupOpenGL(uint32_t versionMajor, uint32_t versionMinor, uint32_t flags);
 bool InitApplication(void);
 void DeinitApplication(void);
@@ -202,6 +238,7 @@ void DeinitApplication(void);
 /// Event handling
 
 void PollInputEvents(void);
+bool WindowShouldClose(void); // desktop only
 bool IsKeyPressed(int key);
 bool IsKeyReleased(int key);
 bool IsKeyDown(int key);
@@ -212,10 +249,24 @@ bool IsMouseButtonDown(int button);
 bool IsMouseButtonUp(int button);
 bool IsFrameResized(void);
 
+/// Image
+
+bool LoadImageFromFile(Image *image, const char *filePath);
+bool LoadImage(Image *image, const uint8_t *data, uint32_t width, uint32_t height, uint32_t compAmount);
+void UnloadImage(Image image);
+
+/// Text Font
+bool LoadFontEx(TextFont *font, const uint8_t *fontData, size_t dataSize, uint32_t fontSize, uint32_t bitmapWidth, uint32_t bitmapHeight, int codepointCount, int *codepoints);
+GlyphInfo *GetCodepointGlyphInfo(TextFont font, int codepoint);
+
+bool LoadFontFromFile(TextFont *font, const char *filePath);
+void UnloadFont(TextFont font);
+
 /// Textures
 
+bool LoadTextureFromFile(Texture *texture, const char *filePath);
+bool LoadTextureFromImage(Texture *result, Image image);
 bool LoadTexture(Texture *result, const uint8_t *data, uint32_t width, uint32_t height, uint32_t compAmount);
-bool LoadTextureFromFile(Texture *texture, const char *filePath, bool flipVerticallyOnLoad);
 void UnloadTexture(Texture texture);
 
 /// Shaders
@@ -235,9 +286,9 @@ int GetShaderAttributeLocation(Shader shader, const char *attributeName);
 void RenderClear(float r, float g, float b, float a);
 void RenderPresent(void);
 void RenderFlush(Shader shader);
-int RenderPutVertex(float x, float y, float z, float r, float g, float b, float a, float u, float v, int textureIndex);
+int  RenderPutVertex(float x, float y, float z, float r, float g, float b, float a, float u, float v, int textureIndex);
 void RenderPutElement(int vertexIndex);
-int RenderEnableTexture(Texture texture);
+int  RenderEnableTexture(Texture texture);
 void RenderViewport(int x, int y, uint32_t width, uint32_t height);
 
 /// Drawing
@@ -250,12 +301,14 @@ void DrawTexture(Texture texture, int x, int y, uint32_t w, uint32_t h);
 void DrawTextureEx(Texture texture, Rectangle src, Rectangle dst);
 void DrawTriangle(Color color, int x1, int y1, int x2, int y2, int x3, int y3);
 void DrawCircle(Color color, int cx, int cy, uint32_t r);
+void DrawText(TextFont font, const char *text, int posX, int posY, int fontSize, Color color);
+void DrawTextEx(TextFont font, const char *text, Vector2 position, float fontSize, float spacing, Color tint, int lineSpacing);
+
 
 /// OpenGL
 
 void GLSwapBuffers(void);
 void GLGetProc(const char *procName);
-
 
 /// Desktop platform only
 
@@ -269,16 +322,16 @@ bool IsWindowResizable(void);
 bool IsWindowFullscreen(void);
 
 void SetWindowShouldClose(bool shouldClose);
-bool WindowShouldClose(void);
 
 /*******************************
  * Enumerations
  *******************************/
 typedef enum NoeLogLevel {
-    LOG_INFO = 0,
-    LOG_WARNING,
+    LOG_FATAL = 0,
     LOG_ERROR,
-    LOG_FATAL,
+    LOG_WARNING,
+    LOG_INFO,
+    LOG_DEBUG,
 } NoeLogLevel;
 
 typedef enum NoeWindowSetupFlags {

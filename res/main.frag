@@ -36,5 +36,6 @@ void main() {
             break;
         default:
             o_FragColor = v_Color;
+            break;
     }
 }

@@ -2,15 +2,10 @@
 #include "./src/nomath.h"
 #include <stdio.h>
 
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
-
-char *LoadFileText(const char *filePath);
-bool LoadTextureFromFile(Texture *texture, const char *filePath, bool flipVerticallyOnLoad);
-bool LoadShaderFromFile(Shader *shader, const char *vertSourceFilePath, const char *fragSourceFilePath);
-
 #define WIDTH 800
 #define HEIGHT 600
+
+bool SaveImagePNG(Image image, const char *filePath);
 
 int main(void)
 {
@@ -23,7 +18,7 @@ int main(void)
     }
 
     Texture texture;
-    if(!LoadTextureFromFile(&texture, "./res/ikan.png", false)) {
+    if(!LoadTextureFromFile(&texture, "./res/ikan.png")) {
         TRACELOG(LOG_FATAL, "Failed to load texture");
         return -1;
     }
@@ -35,6 +30,9 @@ int main(void)
     int y = 10;
     int world_speed = 5;
 
+    TextFont font;
+    LoadFontFromFile(&font, "./res/inter.ttf");
+
     while(!WindowShouldClose()) {
         PollInputEvents();
         if(IsKeyPressed(KEY_ESCAPE)) break;
@@ -45,55 +43,10 @@ int main(void)
 
         ClearBackground(WHITE);
         DrawTexture(texture, x, y, texture.width*10, texture.height*10);
+        DrawText(font, "Hello", 10.0f, 10.0f, 32, RED);
         RenderFlush(shader);
         RenderPresent();
     }
     
     DeinitApplication();
-}
-
-char *LoadFileText(const char *filePath)
-{
-    FILE *f = fopen(filePath, "r");
-    if(!f) return NULL;
-
-    fseek(f, 0L, SEEK_END);
-    size_t filesz = ftell(f);
-    fseek(f, 0L, SEEK_SET);
-    char *result = MemoryAlloc(sizeof(char) * (filesz + 1));
-    if(!result) {
-        fclose(f);
-        return NULL;
-    }
-
-    size_t read_length = fread(result, sizeof(char), filesz, f);
-    result[read_length] = '\0';
-    fclose(f);
-    return result;
-}
-
-bool LoadTextureFromFile(Texture *texture, const char *filePath, bool flipVerticallyOnLoad)
-{
-    if(!texture) return false;
-    if(!filePath) return false;
-
-    int width, height, compAmount;
-    stbi_set_flip_vertically_on_load(flipVerticallyOnLoad);
-    stbi_uc *data = stbi_load(filePath, &width, &height, &compAmount, 0);
-    if(!data) return false;
-    bool result = LoadTexture(texture, data, width, height, compAmount);
-    stbi_image_free(data);
-    stbi_set_flip_vertically_on_load(false);
-
-    return result;
-}
-
-bool LoadShaderFromFile(Shader *shader, const char *vertSourceFilePath, const char *fragSourceFilePath)
-{
-    char *vertSource = LoadFileText(vertSourceFilePath);
-    char *fragSource = LoadFileText(fragSourceFilePath);
-    bool result = LoadShader(shader, vertSource, fragSource);
-    MemoryFree(vertSource);
-    MemoryFree(fragSource);
-    return result;
 }

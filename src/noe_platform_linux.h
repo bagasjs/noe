@@ -1,15 +1,12 @@
 #ifndef NOE_PLATFORM_LINUX_H_
 #define NOE_PLATFORM_LINUX_H_
 
-#include "noe.h"
-
-#ifdef NOE_LINUX_DISPLAY_X11
-
 #include <X11/Xlib.h>
-#include <X11/keysym.h>
 #include <X11/Xutil.h>
+#include <X11/keysym.h>
 #include <GL/glx.h>
 #include <EGL/egl.h>
+#include "noe.h"
 
 typedef struct _PlatformDisplayState {
     Display *handle;
@@ -74,8 +71,6 @@ typedef struct _PlatformWindowState {
 
     _PlatformGLContext glctx;
 } _PlatformWindowState;
-
-#endif
 
 typedef struct _PlatformState {
     bool initialized;

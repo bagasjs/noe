@@ -1,7 +1,5 @@
 #include "noe.h"
 
-#define COLOR2VECTOR4(c) ((float)(c).r/255.0f),((float)(c).g/255.0f),((float)(c).b/255.0f),((float)(c).a/255.0f)
-
 void ClearBackground(Color color)
 {
     RenderClear(COLOR2VECTOR4(color));
