@@ -17,6 +17,10 @@ bool LoadFontGlyphs(TextFont *font, const uint8_t *fontData, uint32_t fontSize, 
     }
 
     float scale = stbtt_ScaleForPixelHeight(&info, (float)fontSize);
+
+    int ascent, descent, lineGap;
+    stbtt_GetFontVMetrics(&info, &ascent, &descent, &lineGap);
+
     codepointAmount = (codepointAmount > 0)? codepointAmount : 95;
     bool genFontChars = false;
     if (codepoints == NULL) {
@@ -31,22 +35,20 @@ bool LoadFontGlyphs(TextFont *font, const uint8_t *fontData, uint32_t fontSize, 
         return false;
     }
 
-    int ascent, descent, lineGap;
-    stbtt_GetFontVMetrics(&info, &ascent, &descent, &lineGap);
-
     for (int i = 0; i < codepointAmount; i++) {
         int chw = 0, chh = 0;   // Character width and height (on generation)
         int ch = codepoints[i];  // Character value to get info for
         chars[i].codepoint = ch;
 
         int index = stbtt_FindGlyphIndex(&info, ch);
-        if (index ==  0) {
+        if (index == 0) {
             TRACELOG(LOG_WARNING, "Failed to load glyph for `%c`", (char)ch);
             continue;
         }
 
         chars[i].image.data = stbtt_GetCodepointBitmap(&info, scale, scale, ch, &chw, &chh, 
                 &chars[i].offsetX, &chars[i].offsetY);
+
         if (chars[i].image.data != NULL)    // Glyph data has been found in the font
         {
             stbtt_GetCodepointHMetrics(&info, ch, &chars[i].advanceX, NULL);
@@ -60,8 +62,7 @@ bool LoadFontGlyphs(TextFont *font, const uint8_t *fontData, uint32_t fontSize, 
             chars[i].offsetY += (int)((float)ascent*scale);
         }
 
-        if (ch == 32)
-        {
+        if (ch == 32) {
             stbtt_GetCodepointHMetrics(&info, ch, &chars[i].advanceX, NULL);
             chars[i].advanceX = (int)((float)chars[i].advanceX*scale);
 
@@ -96,8 +97,6 @@ Image GenImageFontAtlas(const GlyphInfo *glyphsInfo, Rectangle **glyphRecs,
     }
 
     Image atlas = {0};
-    int rowCount = 0;
-    int imageSize = 64;  // Define minimum starting value to avoid unnecessary calculation steps for very small images
 
     // Calculate image size based on total glyph width and glyph row count
     uint32_t totalWidth = 0;
@@ -114,6 +113,10 @@ Image GenImageFontAtlas(const GlyphInfo *glyphsInfo, Rectangle **glyphRecs,
         totalWidth += glyphsInfo[i].image.width + 2*padding;
     }
 
+#if defined(SUPPORT_FONT_ATLAS_SIZE_CONSERVATIVE)
+    int rowCount = 0;
+    int imageSize = 64;  // Define minimum starting value to avoid unnecessary calculation steps for very small images
+
     // NOTE: maxGlyphWidth is maximum possible space left at the end of row
     while (totalWidth > (imageSize - maxGlyphWidth)*rowCount) {
         imageSize *= 2;                                 // Double the size of image (to keep POT)
@@ -122,6 +125,22 @@ Image GenImageFontAtlas(const GlyphInfo *glyphsInfo, Rectangle **glyphRecs,
 
     atlas.width = imageSize;   // Atlas bitmap width
     atlas.height = imageSize;  // Atlas bitmap height
+#else
+    int paddedFontSize = fontSize + 2*padding;
+    // No need for a so-conservative atlas generation
+    float totalArea = totalWidth*paddedFontSize*1.2f;
+    float imageMinSize = sqrtf(totalArea);
+    int imageSize = (int)powf(2, ceilf(logf(imageMinSize)/logf(2)));
+
+    if (totalArea < ((float)(imageSize*imageSize)/2)) {
+        atlas.width = imageSize;    // Atlas bitmap width
+        atlas.height = imageSize/2; // Atlas bitmap height
+    } else {
+        atlas.width = imageSize;   // Atlas bitmap width
+        atlas.height = imageSize;  // Atlas bitmap height
+    }
+#endif
+
     atlas.compAmount = 1;
     atlas.data = (uint8_t *)MemoryAlloc(atlas.compAmount*atlas.width*atlas.height);
 
@@ -166,6 +185,13 @@ Image GenImageFontAtlas(const GlyphInfo *glyphsInfo, Rectangle **glyphRecs,
 
         // Move atlas position X for next character drawing
         offsetX += (glyphsInfo[i].image.width + 2*padding);
+    }
+
+    for (int i = 0, k = atlas.width*atlas.height - 1; i < 3; i++) {
+        ((unsigned char *)atlas.data)[k - 0] = 255;
+        ((unsigned char *)atlas.data)[k - 1] = 255;
+        ((unsigned char *)atlas.data)[k - 2] = 255;
+        k -= atlas.width;
     }
 
     *glyphRecs = recs;
@@ -315,8 +341,12 @@ void DrawTextEx(TextFont font, const char *text, Vector2 position, float fontSiz
                         fontSize, tint);
             }
 
-            if (font.glyphsInfo[index].advanceX == 0) textOffsetX += ((float)font.recs[index].width*scaleFactor + spacing);
-            else textOffsetX += ((float)font.glyphsInfo[index].advanceX*scaleFactor + spacing);
+
+            if (font.glyphsInfo[index].advanceX == 0) 
+                textOffsetX += ((float)font.recs[index].width*scaleFactor + spacing);
+            else 
+                textOffsetX += ((float)font.glyphsInfo[index].advanceX*scaleFactor + spacing);
+
         }
 
         i += codepointByteCount;   // Move text bytes counter to next codepoint

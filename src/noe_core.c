@@ -142,11 +142,9 @@ bool initBatchRenderer(void)
     APP.renderer.activeTextureIDs.count = 0;
 
     if(APP.renderer.config.supportVAO) {
-        TRACELOG(LOG_INFO, "VAO is supported");
         APP.renderer.config.supportVAO = true;
         glGenVertexArrays(1, &APP.renderer.vaoID);
     } else {
-        TRACELOG(LOG_INFO, "VAO is not supported");
         APP.renderer.config.supportVAO = false;
     }
 

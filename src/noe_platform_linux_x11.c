@@ -519,6 +519,7 @@ bool initGLContextGLX(_PlatformState *platform, const _ApplicationConfig *config
 
 bool _InitPlatform(_ApplicationState *app, _ApplicationConfig *config)
 {
+    (void)app;
     TRACELOG(LOG_INFO, "Initializing platform (Linux)");
     if(PLATFORM.initialized) {
         TRACELOG(LOG_ERROR, "Initializing platform failed: You have initialize the platform");
@@ -637,6 +638,7 @@ bool _InitPlatform(_ApplicationState *app, _ApplicationConfig *config)
 
 void _DeinitPlatform(_ApplicationState *app)
 {
+    (void)app;
     if(!PLATFORM.initialized) return;
 
     if(PLATFORM.window.glctx.useGLX) {

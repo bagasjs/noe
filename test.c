@@ -30,7 +30,7 @@ int main(void)
     int world_speed = 5;
 
     TextFont font;
-    LoadFontFromFile(&font, "./res/inter.ttf");
+    LoadFontFromFile(&font, "./res/firacode.ttf");
 
     while(!WindowShouldClose()) {
         PollInputEvents();
@@ -42,6 +42,7 @@ int main(void)
 
         ClearBackground(WHITE);
         DrawTexture(texture, x, y, texture.width*10, texture.height*10);
+        DrawText(font, "Mantap jiwa", 0, 0, 24, RED);
         RenderFlush(shader);
         RenderPresent();
     }
