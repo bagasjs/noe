@@ -6,6 +6,8 @@
 #include <stdbool.h>
 #include <stdarg.h>
 
+#include "config.h"
+
 #if defined(_WIN32)
     #define NOE_PLATFORM_WINDOWS
     #define NOE_PLATFORM_DESKTOP
@@ -22,34 +24,6 @@
 #ifndef STATIC_ASSERT
 #define STATIC_ASSERT(COND) _Static_assert(COND, #COND)
 #endif // STATIC_ASSERT
-
-#ifndef MAXIMUM_KEYBOARD_KEYS
-#define MAXIMUM_KEYBOARD_KEYS 512
-#endif
-
-#ifndef MAXIMUM_MOUSE_BUTTONS
-#define MAXIMUM_MOUSE_BUTTONS 8
-#endif
-
-#ifndef MAXIMUM_KEYPRESSED_QUEUE
-#define MAXIMUM_KEYPRESSED_QUEUE 16
-#endif
-
-#ifndef MAXIMUM_SHADER_LOCS
-#define MAXIMUM_SHADER_LOCS 16
-#endif
-
-#ifndef MAXIMUM_BATCH_RENDERER_VERTICES
-#define MAXIMUM_BATCH_RENDERER_VERTICES (32*1024)
-#endif
-
-#ifndef MAXIMUM_BATCH_RENDERER_ELEMENTS
-#define MAXIMUM_BATCH_RENDERER_ELEMENTS (64*1024)
-#endif
-
-#ifndef MAXIMUM_BATCH_RENDERER_ACTIVE_TEXTURES
-#define MAXIMUM_BATCH_RENDERER_ACTIVE_TEXTURES 8
-#endif
 
 #ifndef SIGN
 #define SIGN(T, a) (((T)(a) > 0) - ((T)(a) < 0))
@@ -147,13 +121,10 @@ typedef union Matrix {
 } Matrix;
 #endif // NOMATH_TYPES
 
-#ifndef NOE_SAFE_WIN32_INCLUDE
-
 typedef struct Rectangle {
     float x, y;
     float width, height;
 } Rectangle;
-#endif // NOE_SAFE_WIN32_INCLUDE
 
 typedef struct Image {
     uint8_t *data;

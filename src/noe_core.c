@@ -6,55 +6,6 @@
 #define NOMATH_IMPLEMENTATION
 #include "nomath.h"
 
-#ifndef POSITION_SHADER_ATTRIBUTE_LOCATION
-    #define POSITION_SHADER_ATTRIBUTE_LOCATION 0
-#endif // POSITION_SHADER_ATTRIBUTE_LOCATION
-#ifndef COLOR_SHADER_ATTRIBUTE_LOCATION
-    #define COLOR_SHADER_ATTRIBUTE_LOCATION 1
-#endif // COLOR_SHADER_ATTRIBUTE_LOCATION
-#ifndef TEXCOORDS_SHADER_ATTRIBUTE_LOCATION
-    #define TEXCOORDS_SHADER_ATTRIBUTE_LOCATION 2
-#endif // TEXCOORDS_SHADER_ATTRIBUTE_LOCATION
-#ifndef TEXTURE_INDEX_SHADER_ATTRIBUTE_LOCATION
-    #define TEXTURE_INDEX_SHADER_ATTRIBUTE_LOCATION 3
-#endif // TEXTURE_INDEX_SHADER_ATTRIBUTE_LOCATION
-#ifndef TEXTURE_SAMPLERS_SHADER_UNIFORM_LOCATION
-    #define TEXTURE_SAMPLERS_SHADER_UNIFORM_LOCATION 4
-#endif // TEXTURE_SAMPLERS_SHADER_UNIFORM_LOCATION
-#ifndef PROJECTION_MATRIX_SHADER_UNIFORM_LOCATION
-    #define PROJECTION_MATRIX_SHADER_UNIFORM_LOCATION 5
-#endif // PROJECTION_MATRIX_SHADER_UNIFORM_LOCATION
-#ifndef VIEW_MATRIX_SHADER_UNIFORM_LOCATION
-    #define VIEW_MATRIX_SHADER_UNIFORM_LOCATION 6
-#endif // VIEW_MATRIX_SHADER_UNIFORM_LOCATION
-#ifndef MODEL_MATRIX_SHADER_UNIFORM_LOCATION
-    #define MODEL_MATRIX_SHADER_UNIFORM_LOCATION 7
-#endif // MODEL_MATRIX_SHADER_UNIFORM_LOCATION
-#ifndef POSITION_SHADER_ATTRIBUTE_NAME
-    #define POSITION_SHADER_ATTRIBUTE_NAME "a_Position"
-#endif // POSITION_SHADER_ATTRIBUTE_NAME
-#ifndef COLOR_SHADER_ATTRIBUTE_NAME
-    #define COLOR_SHADER_ATTRIBUTE_NAME "a_Color"
-#endif // COLOR_SHADER_ATTRIBUTE_NAME
-#ifndef TEXCOORDS_SHADER_ATTRIBUTE_NAME
-    #define TEXCOORDS_SHADER_ATTRIBUTE_NAME "a_TexCoords"
-#endif // TEXCOORDS_SHADER_ATTRIBUTE_NAME
-#ifndef TEXTURE_INDEX_SHADER_ATTRIBUTE_NAME
-    #define TEXTURE_INDEX_SHADER_ATTRIBUTE_NAME "a_TextureIndex"
-#endif // TEXTURE_INDEX_SHADER_ATTRIBUTE_NAME
-#ifndef TEXTURE_SAMPLERS_SHADER_UNIFORM_NAME
-    #define TEXTURE_SAMPLERS_SHADER_UNIFORM_NAME "u_Textures"
-#endif // TEXTURE_SAMPLERS_SHADER_UNIFORM_NAME
-#ifndef PROJECTION_MATRIX_SHADER_UNIFORM_NAME
-    #define PROJECTION_MATRIX_SHADER_UNIFORM_NAME "u_Projection"
-#endif // PROJECTION_MATRIX_SHADER_UNIFORM_NAME
-#ifndef VIEW_MATRIX_SHADER_UNIFORM_NAME
-    #define VIEW_MATRIX_SHADER_UNIFORM_NAME "u_View"
-#endif // VIEW_MATRIX_SHADER_UNIFORM_NAME
-#ifndef MODEL_MATRIX_SHADER_UNIFORM_NAME
-    #define MODEL_MATRIX_SHADER_UNIFORM_NAME "u_Model"
-#endif // MODEL_MATRIX_SHADER_UNIFORM_NAME
-
 static _ApplicationConfig CONFIG = {
     .window.width = 800,
     .window.height = 600,
@@ -727,3 +678,123 @@ void GLCheckLastError(int exitOnError)
     }
     TRACELOG(LOG_DEBUG, "THERE'S NO ERROR");
 }
+
+#ifdef NOE_PLATFORM_LINUX
+
+#include <stdlib.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <sys/time.h>
+
+#define LOG_MESSAGE_MAXIMUM_LENGTH (32*1024)
+static const char *logLevelsAsText[] = {
+    "[FATAL] ",
+    "[ERROR] ",
+    "[WARNING] ",
+    "[INFO] ",
+    "[DEBUG] ",
+};
+
+void ExitProgram(int status)
+{
+    DeinitApplication();
+    exit(status);
+}
+
+void TraceLog(int logLevel, const char *fmt, ...)
+{
+    if(!(LOG_FATAL <= logLevel && logLevel <= LOG_DEBUG)) return;
+    char logMessage[LOG_MESSAGE_MAXIMUM_LENGTH] = {0};
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(logMessage, LOG_MESSAGE_MAXIMUM_LENGTH, fmt, ap);
+    va_end(ap);
+    switch(logLevel) {
+        case LOG_FATAL:
+            {
+                fprintf(stderr, "%s %s\n", logLevelsAsText[logLevel], logMessage);
+                ExitProgram(-1);
+            } break;
+        case LOG_ERROR:
+            {
+                fprintf(stderr, "%s %s\n", logLevelsAsText[logLevel], logMessage);
+            } break;
+        default:
+            {
+                printf("%s %s\n", logLevelsAsText[logLevel], logMessage);
+            } break;
+    }
+}
+
+void *MemoryAlloc(size_t nBytes)
+{
+    void *result = malloc(nBytes);
+    if(!result) return NULL;
+    MemorySet(result, 0, nBytes);
+    return result;
+}
+
+void MemoryFree(void *ptr)
+{
+    if(ptr) free(ptr);
+}
+
+uint64_t GetTimeMilis(void)
+{
+    return 0;
+}
+
+char *LoadFileText(const char *filePath, size_t *fileSize)
+{
+    FILE *f = fopen(filePath, "r");
+    if(!f) return NULL;
+
+    fseek(f, 0L, SEEK_END);
+    size_t filesz = ftell(f);
+    fseek(f, 0L, SEEK_SET);
+    char *result = MemoryAlloc(sizeof(char) * (filesz + 1));
+    if(!result) {
+        TraceLog(LOG_ERROR, "Failed to load file `%s` text content", filePath);
+        fclose(f);
+        return NULL;
+    }
+
+    size_t readLength = fread(result, sizeof(char), filesz, f);
+    result[readLength] = '\0';
+    if(fileSize) *fileSize = readLength;
+    fclose(f);
+    return result;
+}
+
+void UnloadFileText(char *text)
+{
+    MemoryFree(text);
+}
+
+uint8_t *LoadFileData(const char *filePath, size_t *fileSize)
+{
+    FILE *f = fopen(filePath, "rb");
+    if(!f) return NULL;
+
+    fseek(f, 0L, SEEK_END);
+    size_t filesz = ftell(f);
+    fseek(f, 0L, SEEK_SET);
+    uint8_t *result = MemoryAlloc(sizeof(uint8_t) * (filesz + 1));
+    if(!result) {
+        TraceLog(LOG_ERROR, "Failed to load file `%s` data", filePath);
+        fclose(f);
+        return NULL;
+    }
+
+    size_t readLength = fread(result, sizeof(uint8_t), filesz, f);
+    if(fileSize) *fileSize = readLength;
+    fclose(f);
+    return result;
+}
+
+void UnloadFileData(uint8_t *data)
+{
+    MemoryFree(data);
+}
+
+#endif

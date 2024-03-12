@@ -25,14 +25,14 @@ bool LoadFontGlyphs(TextFont *font, const uint8_t *fontData, uint32_t fontSize, 
         genFontChars = true;
     }
 
-    int ascent, descent, lineGap;
-    stbtt_GetFontVMetrics(&info, &ascent, &descent, &lineGap);
-
     GlyphInfo *chars = (GlyphInfo *)MemoryAlloc(codepointAmount * sizeof(GlyphInfo));
     if(!chars) {
         TRACELOG(LOG_ERROR, "Failed to allocate memory for the glyphs");
         return false;
     }
+
+    int ascent, descent, lineGap;
+    stbtt_GetFontVMetrics(&info, &ascent, &descent, &lineGap);
 
     for (int i = 0; i < codepointAmount; i++) {
         int chw = 0, chh = 0;   // Character width and height (on generation)
@@ -127,15 +127,13 @@ Image GenImageFontAtlas(const GlyphInfo *glyphsInfo, Rectangle **glyphRecs,
 
     uint32_t offsetX = padding;
     uint32_t offsetY = padding;
+
     // NOTE: Using simple packaging, one char after another
     for (uint32_t i = 0; i < glyphsCount; i++) {
         // Check remaining space for glyph
         if (offsetX >= (atlas.width - glyphsInfo[i].image.width - 2*padding)) {
             offsetX = padding;
 
-            // NOTE: Be careful on offsetY for SDF fonts, by default SDF
-            // use an internal padding of 4 pixels, it means char rectangle
-            // height is bigger than fontSize, it could be up to (fontSize + 8)
             offsetY += (fontSize + 2*padding);
 
             if (offsetY > (atlas.height - fontSize - padding)) {
@@ -169,7 +167,6 @@ Image GenImageFontAtlas(const GlyphInfo *glyphsInfo, Rectangle **glyphRecs,
         // Move atlas position X for next character drawing
         offsetX += (glyphsInfo[i].image.width + 2*padding);
     }
-
 
     *glyphRecs = recs;
 
