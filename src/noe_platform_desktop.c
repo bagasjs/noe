@@ -1,6 +1,135 @@
 #include "noe_internal.h"
-#include "noe_platform_desktop.h"
 #include <GLFW/glfw3.h>
+
+#include <stdlib.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <sys/time.h>
+
+typedef struct _PlatformState {
+    bool initialized;
+    struct {
+        GLFWwindow *handle;
+
+        const char *title;
+        uint32_t width, height;
+
+        bool visible, resizable, fullScreen;
+        bool shouldClose;
+    } window;
+} _PlatformState;
+
+void ExitProgram(int status)
+{
+    DeinitApplication();
+    exit(status);
+}
+
+void TraceLog(int logLevel, const char *fmt, ...)
+{
+    static const char *logLevelsAsText[] = {
+        "[FATAL] ",
+        "[ERROR] ",
+        "[WARNING] ",
+        "[INFO] ",
+        "[DEBUG] ",
+    };
+
+    if(!(LOG_FATAL <= logLevel && logLevel <= LOG_DEBUG)) return;
+    char logMessage[LOG_MESSAGE_MAXIMUM_LENGTH] = {0};
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(logMessage, LOG_MESSAGE_MAXIMUM_LENGTH, fmt, ap);
+    va_end(ap);
+    switch(logLevel) {
+        case LOG_FATAL:
+            {
+                fprintf(stderr, "%s %s\n", logLevelsAsText[logLevel], logMessage);
+                ExitProgram(-1);
+            } break;
+        case LOG_ERROR:
+            {
+                fprintf(stderr, "%s %s\n", logLevelsAsText[logLevel], logMessage);
+            } break;
+        default:
+            {
+                printf("%s %s\n", logLevelsAsText[logLevel], logMessage);
+            } break;
+    }
+}
+
+void *MemoryAlloc(size_t nBytes)
+{
+    void *result = malloc(nBytes);
+    if(!result) return NULL;
+    MemorySet(result, 0, nBytes);
+    return result;
+}
+
+void MemoryFree(void *ptr)
+{
+    if(ptr) free(ptr);
+}
+
+uint64_t GetTimeMilis(void)
+{
+    return 0;
+}
+
+char *LoadFileText(const char *filePath, size_t *fileSize)
+{
+    FILE *f = fopen(filePath, "r");
+    if(!f) return NULL;
+
+    fseek(f, 0L, SEEK_END);
+    size_t filesz = ftell(f);
+    fseek(f, 0L, SEEK_SET);
+    char *result = MemoryAlloc(sizeof(char) * (filesz + 1));
+    if(!result) {
+        TraceLog(LOG_ERROR, "Failed to load file `%s` text content", filePath);
+        fclose(f);
+        return NULL;
+    }
+
+    size_t readLength = fread(result, sizeof(char), filesz, f);
+    result[readLength] = '\0';
+    if(fileSize) *fileSize = readLength;
+    fclose(f);
+    return result;
+}
+
+void UnloadFileText(char *text)
+{
+    MemoryFree(text);
+}
+
+uint8_t *LoadFileData(const char *filePath, size_t *fileSize)
+{
+    FILE *f = fopen(filePath, "rb");
+    if(!f) return NULL;
+
+    fseek(f, 0L, SEEK_END);
+    size_t filesz = ftell(f);
+    fseek(f, 0L, SEEK_SET);
+    uint8_t *result = MemoryAlloc(sizeof(uint8_t) * (filesz + 1));
+    if(!result) {
+        TraceLog(LOG_ERROR, "Failed to load file `%s` data", filePath);
+        fclose(f);
+        return NULL;
+    }
+
+    size_t readLength = fread(result, sizeof(uint8_t), filesz, f);
+    if(fileSize) *fileSize = readLength;
+    fclose(f);
+    return result;
+}
+
+void UnloadFileData(uint8_t *data)
+{
+    MemoryFree(data);
+}
+
+static _PlatformState PLATFORM = {0};
 
 static void GlfwWindowSizeCallback(GLFWwindow *window, int width, int height);
 static void GlfwKeyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
@@ -21,49 +150,77 @@ bool _InitPlatform(_ApplicationState *app, _ApplicationConfig *config)
     glfwWindowHint(GLFW_OPENGL_PROFILE, config->opengl.useCoreProfile ? GLFW_OPENGL_CORE_PROFILE : GLFW_OPENGL_COMPAT_PROFILE);
     glfwWindowHint(GLFW_RESIZABLE, config->window.resizable);
     glfwWindowHint(GLFW_VISIBLE, config->window.visible);
-    app->platform.window.handle = glfwCreateWindow(config->window.width, config->window.height, 
+    PLATFORM.window.handle = glfwCreateWindow(config->window.width, config->window.height, 
             config->window.title, NULL, NULL);
-    if(!app->platform.window.handle) {
+    if(!PLATFORM.window.handle) {
         TRACELOG(LOG_FATAL, "Failed to create default window");
         return false;
     }
 
-    glfwMakeContextCurrent(app->platform.window.handle);
+    glfwMakeContextCurrent(PLATFORM.window.handle);
 
-    glfwSetWindowSizeCallback(app->platform.window.handle, GlfwWindowSizeCallback);
-    glfwSetKeyCallback(app->platform.window.handle, GlfwKeyCallback);
-    glfwSetMouseButtonCallback(app->platform.window.handle, GlfwMouseButtonCallback);
-    glfwSetCursorPosCallback(app->platform.window.handle, GlfwMouseCursorPosCallback);
-    glfwSetScrollCallback(app->platform.window.handle, GlfwMouseScrollCallback);
-    glfwSetWindowUserPointer(app->platform.window.handle, app);
+    glfwSetWindowSizeCallback(PLATFORM.window.handle, GlfwWindowSizeCallback);
+    glfwSetKeyCallback(PLATFORM.window.handle, GlfwKeyCallback);
+    glfwSetMouseButtonCallback(PLATFORM.window.handle, GlfwMouseButtonCallback);
+    glfwSetCursorPosCallback(PLATFORM.window.handle, GlfwMouseCursorPosCallback);
+    glfwSetScrollCallback(PLATFORM.window.handle, GlfwMouseScrollCallback);
+    glfwSetWindowUserPointer(PLATFORM.window.handle, app);
 
-    app->platform.window.title = config->window.title;
-    app->platform.window.width = config->window.width;
-    app->platform.window.height = config->window.height;
-    app->platform.window.resizable = config->window.resizable;
-    app->platform.window.visible = config->window.visible;
-    app->platform.window.fullScreen = config->window.fullScreen;
-    app->platform.window.shouldClose = false;
+    PLATFORM.window.title = config->window.title;
+    PLATFORM.window.width = config->window.width;
+    PLATFORM.window.height = config->window.height;
+    PLATFORM.window.resizable = config->window.resizable;
+    PLATFORM.window.visible = config->window.visible;
+    PLATFORM.window.fullScreen = config->window.fullScreen;
+    PLATFORM.window.shouldClose = false;
 
     return true;
 }
 
 void _DeinitPlatform(_ApplicationState *app)
 {
-    glfwDestroyWindow(app->platform.window.handle);
+    (void)app;
+    glfwDestroyWindow(PLATFORM.window.handle);
     glfwTerminate();
+}
+
+void SetWindowShouldClose(bool shouldClose)
+{
+    PLATFORM.window.shouldClose = shouldClose;
+    glfwSetWindowShouldClose(PLATFORM.window.handle, PLATFORM.window.shouldClose);
+}
+
+bool WindowShouldClose(void)
+{
+    return PLATFORM.window.shouldClose;
 }
 
 void _PollPlatformEvents(_ApplicationState *app)
 {
+    (void)app;
     glfwPollEvents();
-    app->platform.window.shouldClose = glfwWindowShouldClose(app->platform.window.handle);
-    glfwSetWindowShouldClose(app->platform.window.handle, GLFW_FALSE);
+    PLATFORM.window.shouldClose = glfwWindowShouldClose(PLATFORM.window.handle);
+    glfwSetWindowShouldClose(PLATFORM.window.handle, GLFW_FALSE);
 }
 
-void _GLSwapBuffers(_ApplicationState *app)
+void GLSwapBuffers(void)
 {
-    glfwSwapBuffers(app->platform.window.handle);
+    glfwSwapBuffers(PLATFORM.window.handle);
+}
+
+bool IsWindowVisible(void)
+{
+    return PLATFORM.window.visible;
+}
+
+bool IsWindowResizable(void)
+{
+    return PLATFORM.window.resizable;
+}
+
+bool IsWindowFullscreen(void)
+{
+    return PLATFORM.window.fullScreen;
 }
 
 static void GlfwWindowSizeCallback(GLFWwindow *window, int width, int height)
@@ -75,6 +232,8 @@ static void GlfwWindowSizeCallback(GLFWwindow *window, int width, int height)
 
 static void GlfwKeyCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
+    (void)scancode;
+    (void)mods;
     if(key < 0) return;
     _ApplicationState *app= (_ApplicationState*)glfwGetWindowUserPointer(window);
 
