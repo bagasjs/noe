@@ -136,3 +136,19 @@ void DrawTextEx(TextFont font, const char *text, int fontSize, Vector2 pos)
         pos.x += dst.width;
     }
 }
+
+Vector2 GetTextDimension(TextFont font, const char *text, int fontSize)
+{
+    float scale = (float)fontSize/(float)font.atlas.height;
+    GlyphInfo info;
+    size_t textLength = strlen(text);
+    Vector2 result = {0};
+
+    result.y = font.atlas.height*scale;
+    for(int i = 0; i < (int)textLength; ++i) {
+        info = FindGlyphInfo(font, text[i]);
+        result.x += (info.s1-info.s0)*scale;
+    }
+
+    return result;
+}

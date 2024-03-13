@@ -78,6 +78,24 @@
 /// Macros
 ///
 
+#ifdef NOE_BUILDTYPE_SHAREDLIB
+    #ifdef NOE_EXPORT
+        #if NOE_COMPILER_CL
+            #define NAPI __declspec(dllexport)
+        #else
+            #define NAPI __attribute__((visibility("default")))
+        #endif
+    #else
+        #if NOE_COMPILER_CL
+            #define NAPI __declspec(dllimport)
+        #else
+            #define NAPI
+        #endif
+    #endif
+#else
+    #define NAPI
+#endif
+
 #ifndef STATIC_ASSERT
 #define STATIC_ASSERT(COND) _Static_assert(COND, #COND)
 #endif // STATIC_ASSERT
@@ -316,7 +334,7 @@ typedef struct GlyphInfo {
 
 typedef struct TextFont {
     Texture texture;
-    Image atlas;
+    Image atlas; // atlas.height is the default fontSize
     GlyphInfo *glyphs;
     int glyphsCount;
 } TextFont;
@@ -334,117 +352,117 @@ typedef struct TextFont {
 
 /// Utility functions
 
-const char *StringFind(const char *haystack, const char *needle);
-char *StringCopy(char *dst, const char *src, size_t length);
-size_t StringLength(const char *str);
-void *MemorySet(void *dst, int value, size_t length);
-void *MemoryCopy(void *dst, const void *src, size_t length);
-const char *GetFileExtension(const char *filePath);
-const char *GetFileName(const char *filePath);
+NAPI const char *StringFind(const char *haystack, const char *needle);
+NAPI char *StringCopy(char *dst, const char *src, size_t length);
+NAPI size_t StringLength(const char *str);
+NAPI void *MemorySet(void *dst, int value, size_t length);
+NAPI void *MemoryCopy(void *dst, const void *src, size_t length);
+NAPI const char *GetFileExtension(const char *filePath);
+NAPI const char *GetFileName(const char *filePath);
 
 /// Platform core functions (required in every platform except file IO in web)
 
-void *MemoryAlloc(size_t nBytes); 
-void MemoryFree(void *ptr); 
-void ExitProgram(int status);
-uint64_t GetUnixTimestamp(void); 
-void TraceLog(int logLevel, const char *fmt, ...);
-char *LoadFileText(const char *filePath, size_t *fileSize); // not implemented on web
-void UnloadFileText(char *text); // not implemented on web
-uint8_t *LoadFileData(const char *filePath, size_t *fileSize); // not implemented on web
-void UnloadFileData(uint8_t *data); // not implemented on web
+NAPI void *MemoryAlloc(size_t nBytes); 
+NAPI void MemoryFree(void *ptr); 
+NAPI void ExitProgram(int status);
+NAPI uint64_t GetUnixTimestamp(void); 
+NAPI void TraceLog(int logLevel, const char *fmt, ...);
+NAPI char *LoadFileText(const char *filePath, size_t *fileSize); // not implemented on web
+NAPI void UnloadFileText(char *text); // not implemented on web
+NAPI uint8_t *LoadFileData(const char *filePath, size_t *fileSize); // not implemented on web
+NAPI void UnloadFileData(uint8_t *data); // not implemented on web
 
 /// Application initialization & deinitialization
 
-void SetupWindow(const char *title, uint32_t width, uint32_t height, uint32_t flags); // desktop only
-void SetupOpenGL(uint32_t versionMajor, uint32_t versionMinor, uint32_t flags);
-bool InitApplication(void);
-void DeinitApplication(void);
+NAPI void SetupWindow(const char *title, uint32_t width, uint32_t height, uint32_t flags); // desktop only
+NAPI void SetupOpenGL(uint32_t versionMajor, uint32_t versionMinor, uint32_t flags);
+NAPI bool InitApplication(void);
+NAPI void DeinitApplication(void);
 
 /// Event handling
 
-void PollInputEvents(void);
-bool WindowShouldClose(void); // desktop only
-bool IsKeyPressed(int key);
-bool IsKeyReleased(int key);
-bool IsKeyDown(int key);
-bool IsKeyUp(int key);
-bool IsMouseButtonPressed(int button);
-bool IsMouseButtonReleased(int button);
-bool IsMouseButtonDown(int button);
-bool IsMouseButtonUp(int button);
-bool IsFrameResized(void);
-Vector2 GetCursorPos(void);
+NAPI void PollInputEvents(void);
+NAPI bool WindowShouldClose(void); // desktop only
+NAPI bool IsKeyPressed(int key);
+NAPI bool IsKeyReleased(int key);
+NAPI bool IsKeyDown(int key);
+NAPI bool IsKeyUp(int key);
+NAPI bool IsMouseButtonPressed(int button);
+NAPI bool IsMouseButtonReleased(int button);
+NAPI bool IsMouseButtonDown(int button);
+NAPI bool IsMouseButtonUp(int button);
+NAPI bool IsFrameResized(void);
+NAPI Vector2 GetCursorPos(void);
 
 /// Image
 
-bool LoadImageFromFile(Image *image, const char *filePath);
-bool LoadImage(Image *image, const uint8_t *data, uint32_t width, uint32_t height, uint32_t compAmount);
-void UnloadImage(Image image);
+NAPI bool LoadImageFromFile(Image *image, const char *filePath);
+NAPI bool LoadImage(Image *image, const uint8_t *data, uint32_t width, uint32_t height, uint32_t compAmount);
+NAPI void UnloadImage(Image image);
 
 /// Font
 
-bool LoadFont(TextFont *font, const uint8_t *fontBuffer, int fontSize, int codepointAmount, int *codepoints);
-void UnloadFont(TextFont font);
-void DrawTextEx(TextFont font, const char *text, int fontSize, Vector2 pos);
+NAPI bool LoadFont(TextFont *font, const uint8_t *fontBuffer, int fontSize, int codepointAmount, int *codepoints);
+NAPI void UnloadFont(TextFont font);
+NAPI Vector2 GetTextDimension(TextFont font, const char *text, int fontSize);
+NAPI void DrawTextEx(TextFont font, const char *text, int fontSize, Vector2 pos);
 
 /// Textures
 
-bool LoadTextureFromFile(Texture *texture, const char *filePath);
-bool LoadTextureFromImage(Texture *result, Image image);
-bool LoadTexture(Texture *result, const uint8_t *data, uint32_t width, uint32_t height, uint32_t compAmount);
-void UnloadTexture(Texture texture);
+NAPI bool LoadTextureFromFile(Texture *texture, const char *filePath);
+NAPI bool LoadTextureFromImage(Texture *result, Image image);
+NAPI bool LoadTexture(Texture *result, const uint8_t *data, uint32_t width, uint32_t height, uint32_t compAmount);
+NAPI void UnloadTexture(Texture texture);
 
 /// Shaders
 
-bool LoadShader(Shader *result, const char *vertSource, const char *fragSource);
-bool LoadShaderFromFile(Shader *result, const char *vertSourceFilePath, const char *fragSourceFilePath);
-void UnloadShader(Shader shader);
-void SetProjectionMatrixUniform(Shader shader, float *matrixData);
-void SetViewMatrixUniform(Shader shader, float *matrixData);
-void SetModelMatrixUniform(Shader shader, float *matrixData);
-void SetShaderUniform(Shader shader, int location, int uniformType, const void *data, int count, bool transposeIfMatrix);
-int GetShaderUniformLocation(Shader shader, const char *uniformName);
-int GetShaderAttributeLocation(Shader shader, const char *attributeName);
+NAPI bool LoadShader(Shader *result, const char *vertSource, const char *fragSource);
+NAPI bool LoadShaderFromFile(Shader *result, const char *vertSourceFilePath, const char *fragSourceFilePath);
+NAPI void UnloadShader(Shader shader);
+NAPI void SetProjectionMatrixUniform(Shader shader, float *matrixData);
+NAPI void SetViewMatrixUniform(Shader shader, float *matrixData);
+NAPI void SetModelMatrixUniform(Shader shader, float *matrixData);
+NAPI void SetShaderUniform(Shader shader, int location, int uniformType, const void *data, int count, bool transposeIfMatrix);
+NAPI int GetShaderUniformLocation(Shader shader, const char *uniformName);
+NAPI int GetShaderAttributeLocation(Shader shader, const char *attributeName);
 
 /// Batch Renderer
 
-void RenderClear(float r, float g, float b, float a);
-void RenderPresent(void);
-void RenderFlush(Shader shader);
-int  RenderPutVertex(float x, float y, float z, float r, float g, float b, float a, float u, float v, int textureIndex);
-void RenderPutElement(int vertexIndex);
-int  RenderEnableTexture(Texture texture);
-void RenderViewport(int x, int y, uint32_t width, uint32_t height);
+NAPI void RenderClear(float r, float g, float b, float a);
+NAPI void RenderPresent(void);
+NAPI void RenderFlush(Shader shader);
+NAPI int  RenderPutVertex(float x, float y, float z, float r, float g, float b, float a, float u, float v, int textureIndex);
+NAPI void RenderPutElement(int vertexIndex);
+NAPI int  RenderEnableTexture(Texture texture);
+NAPI void RenderViewport(int x, int y, uint32_t width, uint32_t height);
 
 /// Drawing
 
-void ClearBackground(Color color);
-void BeginDrawing(void);
-void EndDrawing(void);
-void DrawRectangle(Color color, int x, int y, uint32_t w, uint32_t h);
-void DrawTexture(Texture texture, int x, int y, uint32_t w, uint32_t h);
-void DrawTextureEx(Texture texture, Rectangle src, Rectangle dst);
-void DrawTriangle(Color color, int x1, int y1, int x2, int y2, int x3, int y3);
-void DrawCircle(Color color, int cx, int cy, uint32_t r);
+NAPI void ClearBackground(Color color);
+NAPI void BeginDrawing(void);
+NAPI void EndDrawing(void);
+NAPI void DrawRectangle(Color color, float x, float y, float w, float h);
+NAPI void DrawTexture(Texture texture, float x, float y, float w, float h);
+NAPI void DrawTextureEx(Texture texture, Rectangle src, Rectangle dst);
+NAPI void DrawTriangle(Color color, float x1, float y1, float x2, float y2, float x3, float y3);
+NAPI void DrawCircle(Color color, int cx, int cy, uint32_t r);
 
 /// OpenGL
 
-void GLSwapBuffers(void);
-void GLGetProc(const char *procName);
+NAPI void GLSwapBuffers(void);
+NAPI void GLGetProc(const char *procName);
 
 /// Desktop platform only
 
-void SetWindowTitle(const char *title);
-void SetWindowSize(uint32_t width, uint32_t height);
-void SetWindowVisible(bool isVisible);
-void SetWindowResizable(bool isResizable);
-void SetWindowFullscreen(bool isFullscreen);
-bool IsWindowVisible(void);
-bool IsWindowResizable(void);
-bool IsWindowFullscreen(void);
-
-void SetWindowShouldClose(bool shouldClose);
+NAPI void SetWindowTitle(const char *title);
+NAPI void SetWindowSize(uint32_t width, uint32_t height);
+NAPI void SetWindowVisible(bool isVisible);
+NAPI void SetWindowResizable(bool isResizable);
+NAPI void SetWindowFullscreen(bool isFullscreen);
+NAPI bool IsWindowVisible(void);
+NAPI bool IsWindowResizable(void);
+NAPI bool IsWindowFullscreen(void);
+NAPI void SetWindowShouldClose(bool shouldClose);
 
 /*******************************
  * Enumerations

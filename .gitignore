@@ -3,3 +3,4 @@
 *.ilk
 compile_flags.txt
 .vscode
+build/*

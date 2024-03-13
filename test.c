@@ -1,9 +1,16 @@
 #include "./src/noe.h"
 #include "./src/nomath.h"
-#include <stdio.h>
 
 #define WIDTH 800
 #define HEIGHT 600
+
+bool UI_Button(Vector2 pos, TextFont font, const char *text, float fontSize)
+{
+    Vector2 size = GetTextDimension(font, text, fontSize);
+    DrawRectangle(RED, pos.x, pos.y, size.x, size.y);
+    DrawTextEx(font, text, fontSize, pos);
+    return false;
+}
 
 int main(void)
 {
@@ -33,7 +40,7 @@ int main(void)
         if(IsKeyPressed(KEY_ESCAPE)) break;
 
         ClearBackground(WHITE);
-        DrawTextEx(font, "Hello, World", 32, (Vector2){.x=0, .y=0});
+        UI_Button((Vector2){.x=10.0f, .y=10.0f}, font, "Click me!", 16);
         RenderFlush(shader);
         RenderPresent();
     }
