@@ -157,14 +157,15 @@ bool _InitPlatform(_ApplicationState *app, _ApplicationConfig *config)
         return false;
     }
 
-    glfwMakeContextCurrent(PLATFORM.window.handle);
-
     glfwSetWindowSizeCallback(PLATFORM.window.handle, GlfwWindowSizeCallback);
     glfwSetKeyCallback(PLATFORM.window.handle, GlfwKeyCallback);
     glfwSetMouseButtonCallback(PLATFORM.window.handle, GlfwMouseButtonCallback);
     glfwSetCursorPosCallback(PLATFORM.window.handle, GlfwMouseCursorPosCallback);
     glfwSetScrollCallback(PLATFORM.window.handle, GlfwMouseScrollCallback);
     glfwSetWindowUserPointer(PLATFORM.window.handle, app);
+
+    glfwMakeContextCurrent(PLATFORM.window.handle);
+
 
     PLATFORM.window.title = config->window.title;
     PLATFORM.window.width = config->window.width;
@@ -235,7 +236,7 @@ static void GlfwKeyCallback(GLFWwindow *window, int key, int scancode, int actio
     (void)scancode;
     (void)mods;
     if(key < 0) return;
-    _ApplicationState *app= (_ApplicationState*)glfwGetWindowUserPointer(window);
+    _ApplicationState *app = (_ApplicationState*)glfwGetWindowUserPointer(window);
 
     if (action == GLFW_RELEASE) app->inputs.keyboard.currentKeyState[key] = 0;
     else if(action == GLFW_PRESS) app->inputs.keyboard.currentKeyState[key] = 1;
@@ -249,10 +250,11 @@ static void GlfwKeyCallback(GLFWwindow *window, int key, int scancode, int actio
 
 static void GlfwMouseButtonCallback(GLFWwindow *window, int button, int action, int mods)
 {
-    (void)window;
-    (void)button;
-    (void)action;
     (void)mods;
+
+    _ApplicationState *app= (_ApplicationState*)glfwGetWindowUserPointer(window);
+    if (action == GLFW_RELEASE) app->inputs.mouse.currentButtonState[button] = 0;
+    else if(action == GLFW_PRESS) app->inputs.mouse.currentButtonState[button] = 1;
 }
 
 static void GlfwMouseCursorPosCallback(GLFWwindow *window, double x, double y)

@@ -224,23 +224,70 @@ void PollInputEvents(void)
     for (int i = 0; i < MAXIMUM_MOUSE_BUTTONS; i++) 
         APP.inputs.mouse.previousButtonState[i] = APP.inputs.mouse.currentButtonState[i];
 
-    APP.inputs.mouse.previousPosition = APP.inputs.mouse.currentPosition;
-    APP.inputs.mouse.currentPosition = CLITERAL(Vector2){ .x=0.0f, .y=0.0f };
-
     APP.inputs.mouse.previousWheelMove = APP.inputs.mouse.currentWheelMove;
     APP.inputs.mouse.currentWheelMove = CLITERAL(Vector2){ .x=0.0f, .y=0.0f };
+
+    APP.inputs.mouse.previousPosition = APP.inputs.mouse.currentPosition;
 
     _PollPlatformEvents(&APP);
 }
 
 Vector2 GetCursorPos(void)
 {
-    return APP.inputs.mouse.currentPosition;
+    Vector2 result = (Vector2){.x=0.0f, .y=0.0f};
+    NOE_REQUIRE_INIT_OR_RETURN(result, "`GetCursorPos()` requires you to call `InitApplication()`");
+    result.x = APP.inputs.mouse.currentPosition.x;
+    result.y = APP.inputs.mouse.currentPosition.y;
+    return result;
+}
+
+bool IsMouseButtonPressed(int button)
+{
+    NOE_REQUIRE_INIT_OR_RETURN(false, "`IsMouseButtonPressed()` requires you to call `InitApplication()`");
+    bool pressed = false;
+
+    if ((APP.inputs.mouse.currentButtonState[button] == 1) && (APP.inputs.mouse.previousButtonState[button] == 0)) 
+        pressed = true;
+
+    return pressed;
+}
+
+bool IsMouseButtonDown(int button)
+{
+    NOE_REQUIRE_INIT_OR_RETURN(false, "`IsMouseButtonDown()` requires you to call `InitApplication()`");
+    bool down = false;
+
+    if (APP.inputs.mouse.currentButtonState[button] == 1) 
+        down = true;
+
+    return down;
+}
+
+bool IsMouseButtonReleased(int button)
+{
+    NOE_REQUIRE_INIT_OR_RETURN(false, "`IsMouseButtonReleased()` requires you to call `InitApplication()`");
+    bool released = false;
+
+    if ((APP.inputs.mouse.currentButtonState[button] == 0) && (APP.inputs.mouse.previousButtonState[button] == 1)) 
+        released = true;
+
+    return released;
+}
+
+bool IsMouseButtonUp(int button)
+{
+    NOE_REQUIRE_INIT_OR_RETURN(false, "`IsMouseButtonUp()` requires you to call `InitApplication()`");
+    bool up = false;
+
+    if (APP.inputs.mouse.currentButtonState[button] == 0) 
+        up = true;
+
+    return up;
 }
 
 bool IsKeyPressed(int key)
 {
-    NOE_REQUIRE_INIT_OR_RETURN(true, "`IsKeyPressed()` requires you to call `InitApplication()`");
+    NOE_REQUIRE_INIT_OR_RETURN(false, "`IsKeyPressed()` requires you to call `InitApplication()`");
     bool pressed = false;
     if((key > 0) && (key < MAXIMUM_KEYBOARD_KEYS)) {
         if ((APP.inputs.keyboard.previousKeyState[key] == 0) && (APP.inputs.keyboard.currentKeyState[key] == 1)) 
@@ -251,7 +298,7 @@ bool IsKeyPressed(int key)
 
 bool IsKeyDown(int key)
 {
-    NOE_REQUIRE_INIT_OR_RETURN(true, "`IsKeyDown()` requires you to call `InitApplication()`");
+    NOE_REQUIRE_INIT_OR_RETURN(false, "`IsKeyDown()` requires you to call `InitApplication()`");
     bool down = false;
     if ((key > 0) && (key < MAXIMUM_KEYBOARD_KEYS)) {
         if (APP.inputs.keyboard.currentKeyState[key] == 1) down = true;
@@ -261,7 +308,7 @@ bool IsKeyDown(int key)
 
 bool IsKeyReleased(int key)
 {
-    NOE_REQUIRE_INIT_OR_RETURN(true, "`IsKeyReleased()` requires you to call `InitApplication()`");
+    NOE_REQUIRE_INIT_OR_RETURN(false, "`IsKeyReleased()` requires you to call `InitApplication()`");
     bool released = false;
     if ((key > 0) && (key < MAXIMUM_KEYBOARD_KEYS)) {
         if ((APP.inputs.keyboard.previousKeyState[key] == 1) && (APP.inputs.keyboard.currentKeyState[key] == 0)) 
@@ -272,7 +319,7 @@ bool IsKeyReleased(int key)
 
 bool IsKeyUp(int key)
 {
-    NOE_REQUIRE_INIT_OR_RETURN(true, "`IsKeyUp()` requires you to call `InitApplication()`");
+    NOE_REQUIRE_INIT_OR_RETURN(false, "`IsKeyUp()` requires you to call `InitApplication()`");
     bool up = false;
     if ((key > 0) && (key < MAXIMUM_KEYBOARD_KEYS)) {
         if (APP.inputs.keyboard.currentKeyState[key] == 0) up = true;

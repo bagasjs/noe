@@ -137,6 +137,8 @@
     #endif
 #endif
 
+#define HEX2COLOR(hex) ((Color){(hex >> 24) & 0xFF, (hex >> 16) & 0xFF, (hex >> 8) & 0xFF, hex & 0xFF})
+#define COLOR2HEX(c) ((c.r << 24) | (c.g << 16) | (c.b << 8) | c.a)
 #define COLOR2VECTOR4(c) ((float)(c).r/255.0f),((float)(c).g/255.0f),((float)(c).b/255.0f),((float)(c).a/255.0f)
 
 //////////////////////////////////////////////////////////////
@@ -637,5 +639,15 @@ typedef enum NoeKeyMods {
     KEY_MOD_CAPSLOCK   = 0x0010,
     KEY_MOD_NUMLOCK    = 0x0020,
 } NoeKeyMods;
+
+typedef enum {
+    MOUSE_BUTTON_LEFT    = 0,       // Mouse button left
+    MOUSE_BUTTON_RIGHT   = 1,       // Mouse button right
+    MOUSE_BUTTON_MIDDLE  = 2,       // Mouse button middle (pressed wheel)
+    MOUSE_BUTTON_SIDE    = 3,       // Mouse button side (advanced mouse device)
+    MOUSE_BUTTON_EXTRA   = 4,       // Mouse button extra (advanced mouse device)
+    MOUSE_BUTTON_FORWARD = 5,       // Mouse button forward (advanced mouse device)
+    MOUSE_BUTTON_BACK    = 6,       // Mouse button back (advanced mouse device)
+} NoeMouseButton;
 
 #endif // NOE_H_

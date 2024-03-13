@@ -7,14 +7,13 @@ LFLAGS="-lX11 -lm"
 
 NOE_CFLAGS="-Wall -Wextra -Wpedantic -fPIC -I./src/vendors/stb/ -I./src/vendors/glad/include/ -DNOE_BUILDTYPE_SHAREDLIB"
 NOE_SOURCES=(
-"./src/noe_core.c"
-"./src/noe_text.c"
-"./src/noe_image.c"
+    "./src/noe_core.c"
+    "./src/noe_text.c"
+    "./src/noe_image.c"
 
-"./src/noe_platform_desktop.c"
+    "./src/noe_platform_desktop.c"
 
-"./src/vendors/glad/src/glad.c"
-
+    "./src/vendors/glad/src/glad.c"
 )
 
 GLFW_CFLAGS="-fPIC -D_GLFW_X11"
