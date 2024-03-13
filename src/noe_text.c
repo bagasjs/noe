@@ -40,11 +40,7 @@ bool LoadFont(TextFont *font, const uint8_t *fontBuffer, int fontSize, int codep
         bw += roundf(ax * scale);
     }
 
-    Image atlas;
-    atlas.width  = bw;
-    atlas.height = bh;
-    atlas.compAmount = 1;
-    atlas.data = MemoryAlloc(bw * bh * sizeof(uint8_t));
+    uint8_t *bitmap = MemoryAlloc(bw * bh * sizeof(uint8_t));
     GlyphInfo *chars = MemoryAlloc(sizeof(GlyphInfo) * codepointAmount);
 
     ascent = roundf(ascent * scale);
@@ -67,7 +63,7 @@ bool LoadFont(TextFont *font, const uint8_t *fontBuffer, int fontSize, int codep
         
         /* render character (stride and offset is important here) */
         int byteOffset = x + roundf(lsb * scale) + (y * bw);
-        stbtt_MakeCodepointBitmap(&info, atlas.data + byteOffset, c_x2 - c_x1, c_y2 - c_y1, bw, scale, scale, codepoint);
+        stbtt_MakeCodepointBitmap(&info, bitmap + byteOffset, c_x2 - c_x1, c_y2 - c_y1, bw, scale, scale, codepoint);
 
         chars[i].codepoint = codepoint;
         chars[i].s0 = x;
@@ -84,6 +80,27 @@ bool LoadFont(TextFont *font, const uint8_t *fontBuffer, int fontSize, int codep
 
     if(isCodepointGenerated)
         MemoryFree(codepoints);
+
+    Image atlas;
+    atlas.width  = bw;
+    atlas.height = bh;
+
+#if 0
+    atlas.compAmount = 1;
+    atlas.data = bitmap;
+#else
+    // Two channels
+    atlas.compAmount = 4;
+    atlas.data = (uint8_t *)MemoryAlloc(atlas.width*atlas.height*atlas.compAmount*sizeof(uint8_t));
+
+    for (int i = 0, k = 0; i < (int)(atlas.width*atlas.height); i++, k += atlas.compAmount) {
+        atlas.data[k + 0] = 255;
+        atlas.data[k + 1] = 255;
+        atlas.data[k + 2] = 255;
+        atlas.data[k + 3] = ((uint8_t *)bitmap)[i];
+    }
+    MemoryFree(bitmap);
+#endif
 
     font->atlas = atlas;
     font->glyphs = chars;
@@ -114,7 +131,7 @@ GlyphInfo FindGlyphInfo(TextFont font, int codepoint)
     return font.glyphs[0];
 }
 
-void DrawTextEx(TextFont font, const char *text, int fontSize, Vector2 pos)
+void DrawTextEx(TextFont font, const char *text, int fontSize, Vector2 pos, Color color)
 {
     float scale = (float)fontSize/(float)font.atlas.height;
     GlyphInfo info;
@@ -132,7 +149,7 @@ void DrawTextEx(TextFont font, const char *text, int fontSize, Vector2 pos)
         dst.y = pos.y;
         dst.width = (info.s1-info.s0)*scale;
         dst.height = font.atlas.height*scale;
-        DrawTextureEx(font.texture, src, dst);
+        DrawTextureEx(font.texture, src, dst, color);
         pos.x += dst.width;
     }
 }

@@ -407,7 +407,7 @@ NAPI void UnloadImage(Image image);
 NAPI bool LoadFont(TextFont *font, const uint8_t *fontBuffer, int fontSize, int codepointAmount, int *codepoints);
 NAPI void UnloadFont(TextFont font);
 NAPI Vector2 GetTextDimension(TextFont font, const char *text, int fontSize);
-NAPI void DrawTextEx(TextFont font, const char *text, int fontSize, Vector2 pos);
+void DrawTextEx(TextFont font, const char *text, int fontSize, Vector2 pos, Color color);
 
 /// Textures
 
@@ -445,7 +445,7 @@ NAPI void BeginDrawing(void);
 NAPI void EndDrawing(void);
 NAPI void DrawRectangle(Color color, float x, float y, float w, float h);
 NAPI void DrawTexture(Texture texture, float x, float y, float w, float h);
-NAPI void DrawTextureEx(Texture texture, Rectangle src, Rectangle dst);
+NAPI void DrawTextureEx(Texture texture, Rectangle src, Rectangle dst, Color tint);
 NAPI void DrawTriangle(Color color, float x1, float y1, float x2, float y2, float x3, float y3);
 NAPI void DrawCircle(Color color, int cx, int cy, uint32_t r);
 

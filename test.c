@@ -1,5 +1,7 @@
 #include "./src/noe.h"
 #include "./src/nomath.h"
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "./src/vendors/stb/stb_image_write.h"
 
 #define WIDTH 800
 #define HEIGHT 600
@@ -25,7 +27,7 @@ bool UI_Button(Vector2 pos, const char *text, UI_Style style)
 
     pos.x += style.padding;
     pos.y += style.padding;
-    DrawTextEx(style.font, text, style.fontSize, pos);
+    DrawTextEx(style.font, text, style.fontSize, pos, BLUE);
 
     Vector2 cursor = GetCursorPos();
     bool is_pressed = IsMouseButtonPressed(MOUSE_BUTTON_LEFT)
@@ -57,6 +59,7 @@ int main(void)
     TextFont font;
     uint8_t *data = LoadFileData("./res/firacode.ttf", 0);
     LoadFont(&font, data, 64, 0, NULL);
+    stbi_write_png("out.png", font.atlas.width, font.atlas.height, font.atlas.compAmount, font.atlas.data, font.atlas.width);
 
     UI_Style style;
     style.background = RED;
@@ -67,7 +70,7 @@ int main(void)
     while(!WindowShouldClose()) {
         PollInputEvents();
         if(IsKeyPressed(KEY_ESCAPE)) break;
-        ClearBackground(WHITE);
+        ClearBackground(HEX2COLOR(0x202020FF));
         if(UI_Button((Vector2){.x=10.0f, .y=10.0f}, "CLICK ME!", style)) 
             style.background = COLOR2HEX(style.background) != COLOR2HEX(RED) ? RED : GREEN;
         RenderFlush(shader);

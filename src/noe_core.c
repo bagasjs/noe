@@ -133,13 +133,14 @@ bool initBatchRenderer(void)
 {
     gladLoadGL();
 
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     APP.renderer.config.supportVAO = CONFIG.opengl.useCoreProfile;
     APP.renderer.vertices.count = 0;
     APP.renderer.elements.count = 0;
     APP.renderer.activeTextureIDs.count = 0;
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     if(APP.renderer.config.supportVAO) {
         APP.renderer.config.supportVAO = true;
@@ -493,12 +494,20 @@ bool LoadTexture(Texture *texture, const uint8_t *data, uint32_t width, uint32_t
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-    int internalFormat = GL_ALPHA;
-    if(compAmount == 4) internalFormat = GL_RGBA;
-    else if(compAmount == 3) internalFormat = GL_RGB;
-    else if(compAmount == 2) internalFormat = GL_RG;
+    int internalFormat = GL_RED;
+    int format = GL_RGBA8;
+    if(compAmount == 4) {
+        internalFormat = GL_RGBA8;
+        format = GL_RGBA;
+    } else if(compAmount == 3) {
+        internalFormat = GL_RGB8;
+        format = GL_RGB;
+    } else if(compAmount == 2) {
+        internalFormat = GL_RG8;
+        format = GL_RG;
+    }
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, internalFormat, GL_UNSIGNED_BYTE, data);
+    glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, format, GL_UNSIGNED_BYTE, data);
     glGenerateMipmap(GL_TEXTURE_2D);
 
     texture->height = height;
@@ -754,25 +763,25 @@ void DrawTexture(Texture texture, float x, float y, float w, float h)
     RenderPutElement(tl);
 }
 
-void DrawTextureEx(Texture texture, Rectangle src, Rectangle dst)
+void DrawTextureEx(Texture texture, Rectangle src, Rectangle dst, Color tint)
 {
     int textureIndex = RenderEnableTexture(texture);
     float width  = (float)texture.width;
     float height = (float)texture.height;
     int tl = RenderPutVertex((float)dst.x, (float)dst.y, 0.0f,  
-            0.0f, 0.0f, 0.0f, 0.0f, 
+            COLOR2VECTOR4(tint),
             src.x/width, src.y/height, 
             textureIndex);
     int tr = RenderPutVertex((float)dst.x + (float)dst.width, (float)dst.y, 0.0f,  
-            0.0f, 0.0f, 0.0f, 0.0f,
+            COLOR2VECTOR4(tint),
             (src.x + src.width)/texture.width, src.y/texture.height, 
             textureIndex);
-    int br = RenderPutVertex((float)dst.x + (float)dst.width, (float)dst.y + (float)dst.height,  
-            0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+    int br = RenderPutVertex((float)dst.x + (float)dst.width, (float)dst.y + (float)dst.height, 0.0f,
+            COLOR2VECTOR4(tint),
             (src.x + src.width)/texture.width, (src.y + src.height)/texture.height, 
             textureIndex);
     int bl = RenderPutVertex((float)dst.x, (float)dst.y + (float)dst.height, 0.0f,
-            0.0f, 0.0f, 0.0f, 0.0f,
+            COLOR2VECTOR4(tint),
             (src.x)/texture.width, (src.y + src.height)/texture.height, 
             textureIndex);
     RenderPutElement(tl);
