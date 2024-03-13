@@ -1,7 +1,5 @@
 #include "./src/noe.h"
 #include "./src/nomath.h"
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "./src/vendors/stb/stb_image_write.h"
 
 #define WIDTH 800
 #define HEIGHT 600
@@ -59,7 +57,6 @@ int main(void)
     TextFont font;
     uint8_t *data = LoadFileData("./res/firacode.ttf", 0);
     LoadFont(&font, data, 64, 0, NULL);
-    stbi_write_png("out.png", font.atlas.width, font.atlas.height, font.atlas.compAmount, font.atlas.data, font.atlas.width);
 
     UI_Style style;
     style.background = RED;
