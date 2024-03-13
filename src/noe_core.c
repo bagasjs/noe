@@ -89,6 +89,46 @@ const char *StringFind(const char *haystack, const char *needle)
     return NULL; 
 }
 
+const char *GetFileExtension(const char *filePath)
+{
+    return filePath;
+}
+
+const char *GetFileName(const char *filePath)
+{
+    return filePath;
+}
+
+void GLCheckLastError(int exitOnError) 
+{
+    GLenum err = GL_NO_ERROR;
+    TRACELOG(LOG_DEBUG, "CHECKING OPENGL ERROR");
+    while((err = glGetError()) != GL_NO_ERROR) {
+        switch(err) {
+            case GL_INVALID_ENUM: 
+                TRACELOG(LOG_ERROR, "OPENGL ERROR: GL_INVALID_ENUM"); 
+                if(!exitOnError) { return; } else { break; }
+            case GL_INVALID_VALUE: 
+                TRACELOG(LOG_ERROR, "OPENGL ERROR: GL_INVALID_VALUE"); 
+                if(!exitOnError) { return; } else { break; }
+            case GL_INVALID_OPERATION: 
+                TRACELOG(LOG_ERROR, "OPENGL ERROR: GL_INVALID_OPERATION"); 
+                if(!exitOnError) { return; } else { break; }
+            case GL_OUT_OF_MEMORY: 
+                TRACELOG(LOG_ERROR, "OPENGL ERROR: GL_OUT_OF_MEMORY"); 
+                if(!exitOnError) { return; } else { break; }
+            case GL_INVALID_FRAMEBUFFER_OPERATION: 
+                TRACELOG(LOG_ERROR, "OPENGL ERROR: GL_INVALID_FRAMEBUFFER_OPERATION"); 
+                if(!exitOnError) { return; } else { break; }
+            default: 
+                TRACELOG(LOG_ERROR, "OPENGL ERROR: UNKNOWN"); 
+                if(!exitOnError) { return; } else { break; } 
+        }
+        if(exitOnError) ExitProgram(-1);
+    }
+    TRACELOG(LOG_DEBUG, "THERE'S NO ERROR");
+}
+
 bool initBatchRenderer(void)
 {
     gladLoadGL();
@@ -102,11 +142,9 @@ bool initBatchRenderer(void)
     APP.renderer.activeTextureIDs.count = 0;
 
     if(APP.renderer.config.supportVAO) {
-        TRACELOG(LOG_INFO, "VAO is supported");
         APP.renderer.config.supportVAO = true;
         glGenVertexArrays(1, &APP.renderer.vaoID);
     } else {
-        TRACELOG(LOG_INFO, "VAO is not supported");
         APP.renderer.config.supportVAO = false;
     }
 
@@ -147,14 +185,12 @@ bool InitApplication(void)
 
     if(!_InitPlatform(&APP, &CONFIG)) return false;
 
-#ifndef NOE_PLATFORM_WINDOWS
     TRACELOG(LOG_INFO, "Initializing batch renderer (OpenGL)");
     if(!initBatchRenderer()) {
         TRACELOG(LOG_FATAL, "Initializing batch renderer failed (OpenGL)");
         return false;
     }
     TRACELOG(LOG_INFO, "Initializing batch renderer success (OpenGL)");
-#endif
 
     TRACELOG(LOG_INFO, "Initializing application success");
     APP.initialized = true;
@@ -176,28 +212,9 @@ void DeinitApplication(void)
     _DeinitPlatform(&APP);
 }
 
-bool IsWindowVisible(void)
-{
-    _ApplicationState *app = _GetApplicationState("SetWindowTitle");
-    return app->platform.window.visible;
-}
-
-bool IsWindowResizable(void)
-{
-    _ApplicationState *app = _GetApplicationState("SetWindowTitle");
-    return app->platform.window.resizable;
-}
-
-bool IsWindowFullscreen(void)
-{
-    _ApplicationState *app = _GetApplicationState("SetWindowTitle");
-    return app->platform.window.fullScreen;
-}
-
 void PollInputEvents(void)
 {
     NOE_REQUIRE_INIT_OR_RETURN_VOID("`PollInputEvents()` requires you to call `InitApplication()`");
-    APP.platform.window.shouldClose = false;
     if(!APP.initialized) return;
     APP.inputs.keyboard.keyPressedQueueCount = 0;
 
@@ -214,18 +231,6 @@ void PollInputEvents(void)
     APP.inputs.mouse.currentWheelMove = CLITERAL(Vector2){ .x=0.0f, .y=0.0f };
 
     _PollPlatformEvents(&APP);
-}
-
-void SetWindowShouldClose(bool shouldClose)
-{
-    NOE_REQUIRE_INIT_OR_RETURN_VOID("`SetWindowShouldClose()` requires you to call `InitApplication()`");
-    APP.platform.window.shouldClose = shouldClose;
-}
-
-bool WindowShouldClose(void)
-{
-    NOE_REQUIRE_INIT_OR_RETURN(true, "`WindowShouldClose()` requires you to call `InitApplication()`");
-    return APP.platform.window.shouldClose;
 }
 
 Vector2 GetCursorPos(void)
@@ -294,14 +299,9 @@ void SetupWindow(const char *title, uint32_t width, uint32_t height, uint32_t fl
     CONFIG.window.decorated = FLAG_CHECK(WINDOW_SETUP_DECORATED, flags) ? 1 : 0;
 }
 
-void GLSwapBuffers()
-{
-    _GLSwapBuffers(&APP);
-}
-
 void RenderPresent()
 {
-    _GLSwapBuffers(&APP);
+    GLSwapBuffers();
 }
 
 void RenderClear(float r, float g, float b, float a)
@@ -383,10 +383,28 @@ void RenderViewport(int x, int y, uint32_t width, uint32_t height)
 
 int RenderEnableTexture(Texture texture)
 {
-    int index = APP.renderer.activeTextureIDs.count;
-    APP.renderer.activeTextureIDs.data[index] = texture.ID;
-    APP.renderer.activeTextureIDs.count += 1;
-    return index;
+    for(int i = 0; i < MAXIMUM_BATCH_RENDERER_ACTIVE_TEXTURES; ++i) {
+        if(APP.renderer.activeTextureIDs.data[i] == texture.ID) 
+            return i;
+    }
+
+    if(APP.renderer.activeTextureIDs.count + 1 < MAXIMUM_BATCH_RENDERER_ACTIVE_TEXTURES) {
+        int index = APP.renderer.activeTextureIDs.count;
+        APP.renderer.activeTextureIDs.data[index] = texture.ID;
+        APP.renderer.activeTextureIDs.count += 1;
+        return index;
+    } else {
+        return -1;
+    }
+}
+
+void _DumpVertex(int i, const _RenderVertex *v)
+{
+    TRACELOG(LOG_DEBUG, "Vertex[%d](.x=%.4f,.y=%.4f,.z=%.4f,.r=%.4f,.g=%.4f,.b=%.4f,.a=%.4f,.u=.%.4f,.v=%.4f,.tid=%.4f",
+            i,
+            v->pos.x, v->pos.y, v->pos.z,
+            v->color.r, v->color.g, v->color.b, v->color.a,
+            v->texCoords.u, v->texCoords.v, v->textureIndex);
 }
 
 int RenderPutVertex(float x, float y, float z, float r, float g, float b, float a, float u, float v, int textureIndex)
@@ -629,16 +647,6 @@ void SetShaderUniform(Shader shader, int location, int uniformType, const void *
     glUseProgram(0);
 }
 
-const char *GetFileExtension(const char *filePath)
-{
-    return filePath;
-}
-
-const char *GetFileName(const char *filePath)
-{
-    return filePath;
-}
-
 bool LoadShaderFromFile(Shader *shader, const char *vertSourceFilePath, const char *fragSourceFilePath)
 {
     char *vertSource = LoadFileText(vertSourceFilePath, NULL);
@@ -649,152 +657,80 @@ bool LoadShaderFromFile(Shader *shader, const char *vertSourceFilePath, const ch
     return result;
 }
 
-void GLCheckLastError(int exitOnError) 
+void ClearBackground(Color color)
 {
-    GLenum err = GL_NO_ERROR;
-    TRACELOG(LOG_DEBUG, "CHECKING OPENGL ERROR");
-    while((err = glGetError()) != GL_NO_ERROR) {
-        switch(err) {
-            case GL_INVALID_ENUM: 
-                TRACELOG(LOG_ERROR, "OPENGL ERROR: GL_INVALID_ENUM"); 
-                if(!exitOnError) { return; } else { break; }
-            case GL_INVALID_VALUE: 
-                TRACELOG(LOG_ERROR, "OPENGL ERROR: GL_INVALID_VALUE"); 
-                if(!exitOnError) { return; } else { break; }
-            case GL_INVALID_OPERATION: 
-                TRACELOG(LOG_ERROR, "OPENGL ERROR: GL_INVALID_OPERATION"); 
-                if(!exitOnError) { return; } else { break; }
-            case GL_OUT_OF_MEMORY: 
-                TRACELOG(LOG_ERROR, "OPENGL ERROR: GL_OUT_OF_MEMORY"); 
-                if(!exitOnError) { return; } else { break; }
-            case GL_INVALID_FRAMEBUFFER_OPERATION: 
-                TRACELOG(LOG_ERROR, "OPENGL ERROR: GL_INVALID_FRAMEBUFFER_OPERATION"); 
-                if(!exitOnError) { return; } else { break; }
-            default: 
-                TRACELOG(LOG_ERROR, "OPENGL ERROR: UNKNOWN"); 
-                if(!exitOnError) { return; } else { break; } 
-        }
-        if(exitOnError) ExitProgram(-1);
-    }
-    TRACELOG(LOG_DEBUG, "THERE'S NO ERROR");
+    RenderClear(COLOR2VECTOR4(color));
 }
 
-#ifdef NOE_PLATFORM_LINUX
-
-#include <stdlib.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <sys/time.h>
-
-#define LOG_MESSAGE_MAXIMUM_LENGTH (32*1024)
-static const char *logLevelsAsText[] = {
-    "[FATAL] ",
-    "[ERROR] ",
-    "[WARNING] ",
-    "[INFO] ",
-    "[DEBUG] ",
-};
-
-void ExitProgram(int status)
+void DrawTriangle(Color color, int x1, int y1, int x2, int y2, int x3, int y3)
 {
-    DeinitApplication();
-    exit(status);
+    RenderPutElement(RenderPutVertex((float)x1, (float)y1, 0.0f, COLOR2VECTOR4(color), 0.0f, 0.0f, -1.0f));
+    RenderPutElement(RenderPutVertex((float)x2, (float)y2, 0.0f, COLOR2VECTOR4(color), 0.0f, 0.0f, -1.0f));
+    RenderPutElement(RenderPutVertex((float)x3, (float)y3, 0.0f, COLOR2VECTOR4(color), 0.0f, 0.0f, -1.0f));
 }
 
-void TraceLog(int logLevel, const char *fmt, ...)
+void DrawRectangle(Color color, int x, int y, uint32_t w, uint32_t h)
 {
-    if(!(LOG_FATAL <= logLevel && logLevel <= LOG_DEBUG)) return;
-    char logMessage[LOG_MESSAGE_MAXIMUM_LENGTH] = {0};
-    va_list ap;
-    va_start(ap, fmt);
-    vsnprintf(logMessage, LOG_MESSAGE_MAXIMUM_LENGTH, fmt, ap);
-    va_end(ap);
-    switch(logLevel) {
-        case LOG_FATAL:
-            {
-                fprintf(stderr, "%s %s\n", logLevelsAsText[logLevel], logMessage);
-                ExitProgram(-1);
-            } break;
-        case LOG_ERROR:
-            {
-                fprintf(stderr, "%s %s\n", logLevelsAsText[logLevel], logMessage);
-            } break;
-        default:
-            {
-                printf("%s %s\n", logLevelsAsText[logLevel], logMessage);
-            } break;
-    }
+    int v0 = RenderPutVertex((float)x,  (float)y, 0.0f, COLOR2VECTOR4(color), 0.0f, 0.0f, -1.0f);
+    int v1 = RenderPutVertex((float)x + (float)w,  (float)y, 0.0f, COLOR2VECTOR4(color), 0.0f, 0.0f, -1.0f);
+    int v2 = RenderPutVertex((float)x + (float)w,  (float)y + (float)h, 0.0f, COLOR2VECTOR4(color), 0.0f, 0.0f, -1.0f);
+    int v3 = RenderPutVertex((float)x,  (float)y + (float)h, 0.0f, COLOR2VECTOR4(color), 0.0f, 0.0f, -1.0f);
+    RenderPutElement(v0);
+    RenderPutElement(v1);
+    RenderPutElement(v2);
+    RenderPutElement(v2);
+    RenderPutElement(v3);
+    RenderPutElement(v0);
 }
 
-void *MemoryAlloc(size_t nBytes)
+void DrawTexture(Texture texture, int x, int y, uint32_t w, uint32_t h)
 {
-    void *result = malloc(nBytes);
-    if(!result) return NULL;
-    MemorySet(result, 0, nBytes);
-    return result;
+    int textureIndex = RenderEnableTexture(texture);
+    int tl = RenderPutVertex((float)x, (float)y, 0.0f,  
+            0.0f, 0.0f, 0.0f, 0.0f, 
+            0.0f, 0.0f, textureIndex);
+    int tr = RenderPutVertex((float)x + (float)w, (float)y, 0.0f,  
+            0.0f, 0.0f, 0.0f, 0.0f,
+            1.0f, 0.0f, textureIndex);
+    int br = RenderPutVertex((float)x + (float)w, (float)y + (float)h,  
+            0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+            1.0f, 1.0f, textureIndex);
+    int bl = RenderPutVertex((float)x, (float)y + (float)h, 0.0f,
+            0.0f, 0.0f, 0.0f, 0.0f,
+            0.0f, 1.0f, textureIndex);
+    RenderPutElement(tl);
+    RenderPutElement(tr);
+    RenderPutElement(br);
+    RenderPutElement(br);
+    RenderPutElement(bl);
+    RenderPutElement(tl);
 }
 
-void MemoryFree(void *ptr)
+void DrawTextureEx(Texture texture, Rectangle src, Rectangle dst)
 {
-    if(ptr) free(ptr);
+    int textureIndex = RenderEnableTexture(texture);
+    float width  = (float)texture.width;
+    float height = (float)texture.height;
+    int tl = RenderPutVertex((float)dst.x, (float)dst.y, 0.0f,  
+            0.0f, 0.0f, 0.0f, 0.0f, 
+            src.x/width, src.y/height, 
+            textureIndex);
+    int tr = RenderPutVertex((float)dst.x + (float)dst.width, (float)dst.y, 0.0f,  
+            0.0f, 0.0f, 0.0f, 0.0f,
+            (src.x + src.width)/texture.width, src.y/texture.height, 
+            textureIndex);
+    int br = RenderPutVertex((float)dst.x + (float)dst.width, (float)dst.y + (float)dst.height,  
+            0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+            (src.x + src.width)/texture.width, (src.y + src.height)/texture.height, 
+            textureIndex);
+    int bl = RenderPutVertex((float)dst.x, (float)dst.y + (float)dst.height, 0.0f,
+            0.0f, 0.0f, 0.0f, 0.0f,
+            (src.x)/texture.width, (src.y + src.height)/texture.height, 
+            textureIndex);
+    RenderPutElement(tl);
+    RenderPutElement(tr);
+    RenderPutElement(br);
+    RenderPutElement(br);
+    RenderPutElement(bl);
+    RenderPutElement(tl);
 }
-
-uint64_t GetTimeMilis(void)
-{
-    return 0;
-}
-
-char *LoadFileText(const char *filePath, size_t *fileSize)
-{
-    FILE *f = fopen(filePath, "r");
-    if(!f) return NULL;
-
-    fseek(f, 0L, SEEK_END);
-    size_t filesz = ftell(f);
-    fseek(f, 0L, SEEK_SET);
-    char *result = MemoryAlloc(sizeof(char) * (filesz + 1));
-    if(!result) {
-        TraceLog(LOG_ERROR, "Failed to load file `%s` text content", filePath);
-        fclose(f);
-        return NULL;
-    }
-
-    size_t readLength = fread(result, sizeof(char), filesz, f);
-    result[readLength] = '\0';
-    if(fileSize) *fileSize = readLength;
-    fclose(f);
-    return result;
-}
-
-void UnloadFileText(char *text)
-{
-    MemoryFree(text);
-}
-
-uint8_t *LoadFileData(const char *filePath, size_t *fileSize)
-{
-    FILE *f = fopen(filePath, "rb");
-    if(!f) return NULL;
-
-    fseek(f, 0L, SEEK_END);
-    size_t filesz = ftell(f);
-    fseek(f, 0L, SEEK_SET);
-    uint8_t *result = MemoryAlloc(sizeof(uint8_t) * (filesz + 1));
-    if(!result) {
-        TraceLog(LOG_ERROR, "Failed to load file `%s` data", filePath);
-        fclose(f);
-        return NULL;
-    }
-
-    size_t readLength = fread(result, sizeof(uint8_t), filesz, f);
-    if(fileSize) *fileSize = readLength;
-    fclose(f);
-    return result;
-}
-
-void UnloadFileData(uint8_t *data)
-{
-    MemoryFree(data);
-}
-
-#endif

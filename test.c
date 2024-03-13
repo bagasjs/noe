@@ -5,7 +5,6 @@
 #define WIDTH 800
 #define HEIGHT 600
 
-
 int main(void)
 {
     SetupWindow("My Window", WIDTH, HEIGHT, WINDOW_SETUP_DEFAULT);
@@ -25,23 +24,16 @@ int main(void)
     Matrix projection = MatrixOrthographic(0.0f, WIDTH, HEIGHT, 0.0f, -1.0f, 1.0f);
     SetProjectionMatrixUniform(shader, projection.elements);
 
-    int x = 10;
-    int y = 10;
-    int world_speed = 5;
-
     TextFont font;
-    LoadFontFromFile(&font, "./res/inter.ttf");
+    uint8_t *data = LoadFileData("./res/firacode.ttf", 0);
+    LoadFont(&font, data, 64, 0, NULL);
 
     while(!WindowShouldClose()) {
         PollInputEvents();
         if(IsKeyPressed(KEY_ESCAPE)) break;
-        if(IsKeyDown(KEY_W)) y -= world_speed;
-        if(IsKeyDown(KEY_A)) x -= world_speed;
-        if(IsKeyDown(KEY_S)) y += world_speed;
-        if(IsKeyDown(KEY_D)) x += world_speed;
 
         ClearBackground(WHITE);
-        DrawTexture(texture, x, y, texture.width*10, texture.height*10);
+        DrawTextEx(font, "Hello, World", 32, (Vector2){.x=0, .y=0});
         RenderFlush(shader);
         RenderPresent();
     }

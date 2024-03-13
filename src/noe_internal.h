@@ -3,12 +3,6 @@
 
 #include "noe.h"
 
-#ifndef NOE_NATIVE_PLATFORM_API
-#include "noe_platform_desktop.h"
-#else
-#include "noe_platform_linux.h"
-#endif
-
 typedef struct _InputManager {
     struct {
         char currentKeyState[MAXIMUM_KEYBOARD_KEYS];
@@ -88,17 +82,36 @@ typedef struct _ApplicationState {
     bool initialized;
     _InputManager inputs;
     _BatchRendererState renderer;
-    _PlatformState platform;
 } _ApplicationState;
 
 _ApplicationState *_GetApplicationState(const char *functionName);
 
-// IMPLEMENT THIS IN EVERY PLATFORM
+
+////////////////////////////////////////////////////////////// 
+///
+/// IMPLEMENT THESE FUNCTIONS ON THEIR RESPECTIVE PLATFORMS
+/// WHEN THE PLATFORM DOESN'T SUPPORT THE FUNCTION LOG THE
+/// ERROR MESSAGE
+///
+
+// All platform should implement
 bool _InitPlatform(_ApplicationState *app, _ApplicationConfig *config);
 void _DeinitPlatform(_ApplicationState *app);
 void _PollPlatformEvents(_ApplicationState *app);
-void _GLSwapBuffers(_ApplicationState *app);
+void GLSwapBuffers(void);
+uint64_t GetTimeMilis(void);
+void ExitProgram(int status);
+void TraceLog(int logLevel, const char *fmt, ...);
+void *MemoryAlloc(size_t nBytes);
+void MemoryFree(void *ptr);
 
+// Any platform except the web
+char *LoadFileText(const char *filePath, size_t *fileSize);
+void UnloadFileText(char *text);
+uint8_t *LoadFileData(const char *filePath, size_t *fileSize);
+void UnloadFileData(uint8_t *data);
+
+// Desktop only
 void SetWindowTitle(const char *title);
 void SetWindowSize(uint32_t width, uint32_t height);
 void SetWindowVisible(bool isVisible);

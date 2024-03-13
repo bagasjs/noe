@@ -1,6 +1,198 @@
-#include "noe.h"
-#include "noe_platform_linux.h"
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+#include <X11/keysym.h>
+#include <GL/glx.h>
+#include <EGL/egl.h>
+
+#include <stdlib.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <sys/time.h>
+
 #include "noe_internal.h"
+
+typedef struct _PlatformDisplayState {
+    Display *handle;
+    Screen *defaultScreen;
+    int defaultScreenID;
+    Window defaultRootWindow;
+    int keycodes[256];
+    int scancodes[KEY_LAST];
+
+    struct {
+        int event_base, error_base;
+        int major, minor;
+        struct {
+            bool EXT_swap_control;
+            bool SGI_swap_control;
+            bool MESA_swap_control;
+
+            bool ARB_multisample;
+            bool ARB_framebuffer_sRGB;
+            bool EXT_framebuffer_sRGB;
+            bool ARB_create_context;
+
+            bool ARB_create_context_robustness;
+            bool ARB_create_context_profile;
+            bool EXT_create_context_es2_profile;
+            bool ARB_create_context_no_error;
+            bool ARB_context_flush_control;
+
+        } extensions;
+        struct {
+            PFNGLXSWAPINTERVALEXTPROC SwapIntervalEXT;
+            PFNGLXSWAPINTERVALSGIPROC SwapIntervalSGI;
+            PFNGLXSWAPINTERVALMESAPROC SwapIntervalMESA;
+            PFNGLXCREATECONTEXTATTRIBSARBPROC CreateContextAttribsARB;
+        } api;
+        GLXFBConfig fbconfig;
+        XVisualInfo *visual_info;
+    } glx;
+
+    struct {
+    } egl;
+} _PlatformDisplayState;
+
+typedef struct _PlatformGLContext {
+    bool useGLX;
+    struct {
+        GLXContext handle;
+        GLXWindow window;
+    } glx;
+} _PlatformGLContext;
+
+typedef struct _PlatformWindowState {
+    Window handle;
+    Colormap colormap;
+    Atom wmDeleteWindow;
+
+    const char *title;
+    uint32_t width, height;
+
+    bool visible, resizable, fullScreen;
+    bool shouldClose;
+
+    _PlatformGLContext glctx;
+} _PlatformWindowState;
+
+typedef struct _PlatformState {
+    bool initialized;
+    _PlatformDisplayState display;
+    _PlatformWindowState window;
+} _PlatformState;
+
+void ExitProgram(int status)
+{
+    DeinitApplication();
+    exit(status);
+}
+
+void TraceLog(int logLevel, const char *fmt, ...)
+{
+    static const char *logLevelsAsText[] = {
+        "[FATAL] ",
+        "[ERROR] ",
+        "[WARNING] ",
+        "[INFO] ",
+        "[DEBUG] ",
+    };
+
+    if(!(LOG_FATAL <= logLevel && logLevel <= LOG_DEBUG)) return;
+    char logMessage[LOG_MESSAGE_MAXIMUM_LENGTH] = {0};
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(logMessage, LOG_MESSAGE_MAXIMUM_LENGTH, fmt, ap);
+    va_end(ap);
+    switch(logLevel) {
+        case LOG_FATAL:
+            {
+                fprintf(stderr, "%s %s\n", logLevelsAsText[logLevel], logMessage);
+                ExitProgram(-1);
+            } break;
+        case LOG_ERROR:
+            {
+                fprintf(stderr, "%s %s\n", logLevelsAsText[logLevel], logMessage);
+            } break;
+        default:
+            {
+                printf("%s %s\n", logLevelsAsText[logLevel], logMessage);
+            } break;
+    }
+}
+
+void *MemoryAlloc(size_t nBytes)
+{
+    void *result = malloc(nBytes);
+    if(!result) return NULL;
+    MemorySet(result, 0, nBytes);
+    return result;
+}
+
+void MemoryFree(void *ptr)
+{
+    if(ptr) free(ptr);
+}
+
+uint64_t GetTimeMilis(void)
+{
+    return 0;
+}
+
+char *LoadFileText(const char *filePath, size_t *fileSize)
+{
+    FILE *f = fopen(filePath, "r");
+    if(!f) return NULL;
+
+    fseek(f, 0L, SEEK_END);
+    size_t filesz = ftell(f);
+    fseek(f, 0L, SEEK_SET);
+    char *result = MemoryAlloc(sizeof(char) * (filesz + 1));
+    if(!result) {
+        TraceLog(LOG_ERROR, "Failed to load file `%s` text content", filePath);
+        fclose(f);
+        return NULL;
+    }
+
+    size_t readLength = fread(result, sizeof(char), filesz, f);
+    result[readLength] = '\0';
+    if(fileSize) *fileSize = readLength;
+    fclose(f);
+    return result;
+}
+
+void UnloadFileText(char *text)
+{
+    MemoryFree(text);
+}
+
+uint8_t *LoadFileData(const char *filePath, size_t *fileSize)
+{
+    FILE *f = fopen(filePath, "rb");
+    if(!f) return NULL;
+
+    fseek(f, 0L, SEEK_END);
+    size_t filesz = ftell(f);
+    fseek(f, 0L, SEEK_SET);
+    uint8_t *result = MemoryAlloc(sizeof(uint8_t) * (filesz + 1));
+    if(!result) {
+        TraceLog(LOG_ERROR, "Failed to load file `%s` data", filePath);
+        fclose(f);
+        return NULL;
+    }
+
+    size_t readLength = fread(result, sizeof(uint8_t), filesz, f);
+    if(fileSize) *fileSize = readLength;
+    fclose(f);
+    return result;
+}
+
+void UnloadFileData(uint8_t *data)
+{
+    MemoryFree(data);
+}
+
+
+static _PlatformState PLATFORM;
 
 static void setupX11KeyMaps(_PlatformState *platform);
 
@@ -8,56 +200,56 @@ void SetWindowTitle(const char *title)
 {
     _ApplicationState *app = _GetApplicationState("SetWindowTitle");
     if(!app) return;
-    app->platform.window.title = title;
+    PLATFORM.window.title = title;
 
-    XStoreName(app->platform.display.handle, app->platform.window.handle, title);
+    XStoreName(PLATFORM.display.handle, PLATFORM.window.handle, title);
 }
 
 void SetWindowSize(uint32_t width, uint32_t height)
 {
     _ApplicationState *app = _GetApplicationState("SetWindowSize");
     if(!app) return;
-    app->platform.window.width = width;
-    app->platform.window.height = height;
+    PLATFORM.window.width = width;
+    PLATFORM.window.height = height;
 }
 
 void SetWindowVisible(bool isVisible)
 {
     _ApplicationState *app = _GetApplicationState("SetWindowVisible");
     if(!app) return;
-    app->platform.window.visible = isVisible;
+    PLATFORM.window.visible = isVisible;
 
     if(isVisible) 
-        XMapWindow(app->platform.display.handle, app->platform.window.handle);
+        XMapWindow(PLATFORM.display.handle, PLATFORM.window.handle);
     else 
-        XUnmapWindow(app->platform.display.handle, app->platform.window.handle);
+        XUnmapWindow(PLATFORM.display.handle, PLATFORM.window.handle);
 }
 
 void SetWindowResizable(bool isResizable)
 {
     _ApplicationState *app = _GetApplicationState("SetWindowResizable");
     if(!app) return;
-    app->platform.window.resizable = isResizable;
+    PLATFORM.window.resizable = isResizable;
 
     XSizeHints *hints = XAllocSizeHints();
     long supplied;
-    XGetWMNormalHints(app->platform.display.handle, app->platform.window.handle, hints, &supplied);
+    XGetWMNormalHints(PLATFORM.display.handle, PLATFORM.window.handle, hints, &supplied);
     hints->flags &= ~(PMinSize | PMaxSize | PAspect);
     if(!isResizable) {
         hints->flags |= (PMinSize | PMaxSize);
-        hints->min_width  = hints->max_width  = app->platform.window.width;
-        hints->min_height = hints->max_height = app->platform.window.height;
+        hints->min_width  = hints->max_width  = PLATFORM.window.width;
+        hints->min_height = hints->max_height = PLATFORM.window.height;
     }
-    XSetWMNormalHints(app->platform.display.handle, app->platform.window.handle, hints);
+    XSetWMNormalHints(PLATFORM.display.handle, PLATFORM.window.handle, hints);
     XFree(hints);
-    XFlush(app->platform.display.handle);
+    XFlush(PLATFORM.display.handle);
 }
 
 void SetWindowFullscreen(bool isFullscreen)
 {
     _ApplicationState *app = _GetApplicationState("SetWindowTitle");
     if(!app) return;
-    app->platform.window.fullScreen = isFullscreen;
+    PLATFORM.window.fullScreen = isFullscreen;
 }
 
 static bool stringInExtensionString(const char* string, const char* extensions)
@@ -327,8 +519,9 @@ bool initGLContextGLX(_PlatformState *platform, const _ApplicationConfig *config
 
 bool _InitPlatform(_ApplicationState *app, _ApplicationConfig *config)
 {
+    (void)app;
     TRACELOG(LOG_INFO, "Initializing platform (Linux)");
-    if(app->platform.initialized) {
+    if(PLATFORM.initialized) {
         TRACELOG(LOG_ERROR, "Initializing platform failed: You have initialize the platform");
         return false;
     }
@@ -341,15 +534,15 @@ bool _InitPlatform(_ApplicationState *app, _ApplicationConfig *config)
         return false;
     }
     
-    app->platform.display.defaultScreen = XDefaultScreenOfDisplay(dpy);
-    app->platform.display.defaultScreenID = XDefaultScreen(dpy);
-    app->platform.display.defaultRootWindow = XRootWindow(dpy, app->platform.display.defaultScreenID);
-    app->platform.display.handle = dpy;
-    setupX11KeyMaps(&app->platform);
+    PLATFORM.display.defaultScreen = XDefaultScreenOfDisplay(dpy);
+    PLATFORM.display.defaultScreenID = XDefaultScreen(dpy);
+    PLATFORM.display.defaultRootWindow = XRootWindow(dpy, PLATFORM.display.defaultScreenID);
+    PLATFORM.display.handle = dpy;
+    setupX11KeyMaps(&PLATFORM);
 
     if(config->opengl.useNative) {
-        if(!initGLX(&app->platform)) {
-            XCloseDisplay(app->platform.display.handle);
+        if(!initGLX(&PLATFORM)) {
+            XCloseDisplay(PLATFORM.display.handle);
             TRACELOG(LOG_INFO, "Failed to initialize GLX");
             return false;
         }
@@ -359,21 +552,21 @@ bool _InitPlatform(_ApplicationState *app, _ApplicationConfig *config)
 
     TRACELOG(LOG_INFO, "Creating window (X11)");
     Window handle;
-    Colormap colormap = XCreateColormap(app->platform.display.handle, app->platform.display.defaultRootWindow, 
-            XDefaultVisualOfScreen(app->platform.display.defaultScreen), AllocNone);
-    Atom wmDeleteWindow = XInternAtom(app->platform.display.handle, "WM_DELETE_WINDOW", False);
+    Colormap colormap = XCreateColormap(PLATFORM.display.handle, PLATFORM.display.defaultRootWindow, 
+            XDefaultVisualOfScreen(PLATFORM.display.defaultScreen), AllocNone);
+    Atom wmDeleteWindow = XInternAtom(PLATFORM.display.handle, "WM_DELETE_WINDOW", False);
 
     XSetWindowAttributes swa;
     swa.override_redirect = True;
     swa.border_pixel = None;
-    swa.background_pixel = XBlackPixel(app->platform.display.handle, app->platform.display.defaultScreenID);
+    swa.background_pixel = XBlackPixel(PLATFORM.display.handle, PLATFORM.display.defaultScreenID);
     swa.colormap = colormap;
     swa.event_mask = StructureNotifyMask | KeyPressMask | KeyReleaseMask |
                     PointerMotionMask | ButtonPressMask | ButtonReleaseMask |
                     ExposureMask | FocusChangeMask | VisibilityChangeMask |
                     EnterWindowMask | LeaveWindowMask | PropertyChangeMask;
 
-    handle = XCreateWindow(app->platform.display.handle, app->platform.display.defaultRootWindow,
+    handle = XCreateWindow(PLATFORM.display.handle, PLATFORM.display.defaultRootWindow,
             0, 0, config->window.width, config->window.height, 0,
             CopyFromParent, InputOutput,
             CopyFromParent, 
@@ -385,49 +578,49 @@ bool _InitPlatform(_ApplicationState *app, _ApplicationConfig *config)
         return false;
     }
 
-    XSetWMProtocols(app->platform.display.handle, handle, &wmDeleteWindow, 1);
+    XSetWMProtocols(PLATFORM.display.handle, handle, &wmDeleteWindow, 1);
 
-    app->platform.window.handle = handle;
-    app->platform.window.colormap = colormap;
-    app->platform.window.wmDeleteWindow = wmDeleteWindow;
-    app->platform.window.glctx.useGLX = config->opengl.useNative;
-    app->platform.window.title = config->window.title;
-    app->platform.window.width = config->window.width;
-    app->platform.window.height = config->window.height;
-    app->platform.window.visible = config->window.visible;
-    app->platform.window.resizable = config->window.resizable;
-    app->platform.window.fullScreen = config->window.fullScreen;
-    app->platform.window.shouldClose = false;
+    PLATFORM.window.handle = handle;
+    PLATFORM.window.colormap = colormap;
+    PLATFORM.window.wmDeleteWindow = wmDeleteWindow;
+    PLATFORM.window.glctx.useGLX = config->opengl.useNative;
+    PLATFORM.window.title = config->window.title;
+    PLATFORM.window.width = config->window.width;
+    PLATFORM.window.height = config->window.height;
+    PLATFORM.window.visible = config->window.visible;
+    PLATFORM.window.resizable = config->window.resizable;
+    PLATFORM.window.fullScreen = config->window.fullScreen;
+    PLATFORM.window.shouldClose = false;
 
     // First setup
-    XStoreName(app->platform.display.handle, app->platform.window.handle, config->window.title);
+    XStoreName(PLATFORM.display.handle, PLATFORM.window.handle, config->window.title);
     if(config->window.visible) 
-        XMapWindow(app->platform.display.handle, app->platform.window.handle);
+        XMapWindow(PLATFORM.display.handle, PLATFORM.window.handle);
     else 
-        XUnmapWindow(app->platform.display.handle, app->platform.window.handle);
+        XUnmapWindow(PLATFORM.display.handle, PLATFORM.window.handle);
     XSizeHints *hints = XAllocSizeHints();
     long supplied;
-    XGetWMNormalHints(app->platform.display.handle, app->platform.window.handle, hints, &supplied);
+    XGetWMNormalHints(PLATFORM.display.handle, PLATFORM.window.handle, hints, &supplied);
     hints->flags &= ~(PMinSize | PMaxSize | PAspect);
     if(!config->window.resizable) {
         hints->flags |= (PMinSize | PMaxSize);
-        hints->min_width  = hints->max_width  = app->platform.window.width;
-        hints->min_height = hints->max_height = app->platform.window.height;
+        hints->min_width  = hints->max_width  = PLATFORM.window.width;
+        hints->min_height = hints->max_height = PLATFORM.window.height;
     }
-    XSetWMNormalHints(app->platform.display.handle, app->platform.window.handle, hints);
+    XSetWMNormalHints(PLATFORM.display.handle, PLATFORM.window.handle, hints);
     XFree(hints);
-    XFlush(app->platform.display.handle);
+    XFlush(PLATFORM.display.handle);
 
     // HACK: Wait and skip the next event to make sure the WM receive the notification
-    while(!XPending(app->platform.display.handle));
+    while(!XPending(PLATFORM.display.handle));
     XEvent event = {0};
-    XNextEvent(app->platform.display.handle, &event);
+    XNextEvent(PLATFORM.display.handle, &event);
 
     TRACELOG(LOG_INFO, "Initializing display system success (X11)");
 
     if(config->opengl.useNative) {
-        if(!initGLContextGLX(&app->platform, config)) {
-            XCloseDisplay(app->platform.display.handle);
+        if(!initGLContextGLX(&PLATFORM, config)) {
+            XCloseDisplay(PLATFORM.display.handle);
             TRACELOG(LOG_INFO, "Failed to initialize GLX");
             return false;
         }
@@ -435,9 +628,9 @@ bool _InitPlatform(_ApplicationState *app, _ApplicationConfig *config)
         // EGL initialization
     }
 
-    makeGLContextCurrent(&app->platform.display, &app->platform.window);
+    makeGLContextCurrent(&PLATFORM.display, &PLATFORM.window);
 
-    app->platform.initialized = true;
+    PLATFORM.initialized = true;
     TRACELOG(LOG_INFO, "Initializing platform success (Linux)");
 
     return true;
@@ -445,27 +638,28 @@ bool _InitPlatform(_ApplicationState *app, _ApplicationConfig *config)
 
 void _DeinitPlatform(_ApplicationState *app)
 {
-    if(!app->platform.initialized) return;
+    (void)app;
+    if(!PLATFORM.initialized) return;
 
-    if(app->platform.window.glctx.useGLX) {
-        glXDestroyWindow(app->platform.display.handle, app->platform.window.glctx.glx.window);
-        glXDestroyContext(app->platform.display.handle, app->platform.window.glctx.glx.handle);
+    if(PLATFORM.window.glctx.useGLX) {
+        glXDestroyWindow(PLATFORM.display.handle, PLATFORM.window.glctx.glx.window);
+        glXDestroyContext(PLATFORM.display.handle, PLATFORM.window.glctx.glx.handle);
     } else {
     }
 
-    XFreeColormap(app->platform.display.handle, app->platform.window.colormap);
-    XDestroyWindow(app->platform.display.handle, app->platform.window.handle);
+    XFreeColormap(PLATFORM.display.handle, PLATFORM.window.colormap);
+    XDestroyWindow(PLATFORM.display.handle, PLATFORM.window.handle);
     TRACELOG(LOG_INFO, "Destroying native window (X11)");
 
-    XCloseDisplay(app->platform.display.handle);
+    XCloseDisplay(PLATFORM.display.handle);
     TRACELOG(LOG_INFO, "Deinitializing platform (Linux)");
 }
 
 
-void _GLSwapBuffers(_ApplicationState *app)
+void GLSwapBuffers(void)
 {
-    if(app->platform.window.glctx.useGLX)
-        glXSwapBuffers(app->platform.display.handle, app->platform.window.glctx.glx.window);
+    if(PLATFORM.window.glctx.useGLX)
+        glXSwapBuffers(PLATFORM.display.handle, PLATFORM.window.glctx.glx.window);
 }
 
 static int translateX11Key(_PlatformState *platform, int scancode) {
@@ -494,11 +688,21 @@ static int translateX11KeyState(int state) {
     return mods;
 }
 
+void SetWindowShouldClose(bool shouldClose)
+{
+    PLATFORM.window.shouldClose = shouldClose;
+}
+
+bool WindowShouldClose(void)
+{
+    return PLATFORM.window.shouldClose;
+}
+
 void _PollPlatformEvents(_ApplicationState *app)
 {
     XEvent event = {0};
-    while(XPending(app->platform.display.handle) > 0) {
-        XNextEvent(app->platform.display.handle, &event);
+    while(XPending(PLATFORM.display.handle) > 0) {
+        XNextEvent(PLATFORM.display.handle, &event);
         int scancode = 0;
 
         // HACK: Save scancode as some IMs clear the field in XFilterEvent
@@ -511,7 +715,7 @@ void _PollPlatformEvents(_ApplicationState *app)
         switch(event.type) {
             case ClientMessage:
                 {
-                    if((Atom)event.xclient.data.l[0] == app->platform.window.wmDeleteWindow) 
+                    if((Atom)event.xclient.data.l[0] == PLATFORM.window.wmDeleteWindow) 
                         SetWindowShouldClose(true);
                 } break;
             case KeyPress:
@@ -519,7 +723,7 @@ void _PollPlatformEvents(_ApplicationState *app)
                 {
                     const int mods = translateX11KeyState(event.xkey.state);
                     (void)mods;
-                    const int keycode = translateX11Key(&app->platform, scancode);
+                    const int keycode = translateX11Key(&PLATFORM, scancode);
                     if(keycode < 0) return;
                     if (event.type == KeyPress) app->inputs.keyboard.currentKeyState[keycode] = 1;
                     else if(event.type == KeyRelease) app->inputs.keyboard.currentKeyState[keycode] = 0;

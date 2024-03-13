@@ -6,20 +6,77 @@
 #include <stdbool.h>
 #include <stdarg.h>
 
-#include "config.h"
+//////////////////////////////////////////////////////////////
+///
+/// Platform context detection
+///
 
-#if defined(_WIN32)
-    #define NOE_PLATFORM_WINDOWS
-    #define NOE_PLATFORM_DESKTOP
-#elif defined(__ANDROID__)
-    #define NOE_PLATFORM_ANDROID
-    #define NOE_PLATFORM_MOBILE
-#elif defined(__linux__) || defined(__gnu_linux__)
-    #define NOE_PLATFORM_LINUX
-    #define NOE_PLATFORM_DESKTOP
-#else
-    #error "Unsupported platform"
+#if defined(_MSC_VER)
+    #if !defined(_WIN32)
+        #error "Expecting MSVC only working in Windows Platform"
+    #endif
+    #define NOE_COMPILER_CL 1
+    #define NOE_PLATFORM_WINDOWS 1
+    #define NOE_PLATFORM_DESKTOP 1
+#elif defined(__clang__)
+    #define NOE_COMPILER_CLANG 1
+    #if defined(_WIN32)
+        #define NOE_PLATFORM_WINDOWS 1
+        #define NOE_PLATFORM_DESKTOP 1
+    #elif defined(__ANDROID__)
+        #define NOE_PLATFORM_ANDROID 1
+        #define NOE_PLATFORM_MOBILE 1
+    #elif defined(__linux__) || defined(__gnu_linux__)
+        #define NOE_PLATFORM_LINUX 1
+        #define NOE_PLATFORM_DESKTOP 1
+    #else
+        #define NOE_PLATFORM_UNKNOWN 1
+    #endif
+#elif defined(__gcc__)
+    #define NOE_COMPILER_GCC 1
+    #if defined(_WIN32)
+        #define NOE_PLATFORM_WINDOWS 1
+        #define NOE_PLATFORM_DESKTOP 1
+    #elif defined(__ANDROID__)
+        #define NOE_PLATFORM_ANDROID 1
+        #define NOE_PLATFORM_MOBILE 1
+    #elif defined(__linux__) || defined(__gnu_linux__)
+        #define NOE_PLATFORM_LINUX 1
+        #define NOE_PLATFORM_DESKTOP 1
+    #else
+        #define NOE_PLATFORM_UNKNOWN 1
+    #endif
 #endif
+
+#ifndef NOE_PLATFORM_WINDOWS
+#define NOE_PLATFORM_WINDOWS 0
+#endif
+#ifndef NOE_PLATFORM_ANDROID
+#define NOE_PLATFORM_ANDROID 0
+#endif
+#ifndef NOE_PLATFORM_LINUX
+#define NOE_PLATFORM_LINUX 0
+#endif
+#ifndef NOE_PLATFORM_DESKTOP
+#define NOE_PLATFORM_DESKTOP 0
+#endif
+#ifndef NOE_PLATFORM_MOBILE
+#define NOE_PLATFORM_MOBILE 0
+#endif
+#ifndef NOE_COMPILER_CL
+#define NOE_COMPILER_CL 0
+#endif
+#ifndef NOE_COMPILER_CLANG
+#define NOE_COMPILER_CLANG 0
+#endif
+#ifndef NOE_COMPILER_GCC
+#define NOE_COMPILER_GCC 0
+#endif
+
+//////////////////////////////////////////////////////////////
+///
+/// Macros
+///
 
 #ifndef STATIC_ASSERT
 #define STATIC_ASSERT(COND) _Static_assert(COND, #COND)
@@ -64,12 +121,115 @@
 
 #define COLOR2VECTOR4(c) ((float)(c).r/255.0f),((float)(c).g/255.0f),((float)(c).b/255.0f),((float)(c).a/255.0f)
 
-/*******************************
- * Structs & Types
- *******************************/
+//////////////////////////////////////////////////////////////
+///
+/// Configurations
+///
+
+#ifndef LOG_MESSAGE_MAXIMUM_LENGTH
+#define LOG_MESSAGE_MAXIMUM_LENGTH (32*1024)
+#endif
+
+#ifndef MAXIMUM_KEYBOARD_KEYS
+#define MAXIMUM_KEYBOARD_KEYS 512
+#endif
+
+#ifndef MAXIMUM_MOUSE_BUTTONS
+#define MAXIMUM_MOUSE_BUTTONS 8
+#endif
+
+#ifndef MAXIMUM_KEYPRESSED_QUEUE
+#define MAXIMUM_KEYPRESSED_QUEUE 16
+#endif
+
+#ifndef MAXIMUM_SHADER_LOCS
+#define MAXIMUM_SHADER_LOCS 16
+#endif
+
+#ifndef MAXIMUM_BATCH_RENDERER_VERTICES
+#define MAXIMUM_BATCH_RENDERER_VERTICES (32*1024)
+#endif
+
+#ifndef MAXIMUM_BATCH_RENDERER_ELEMENTS
+#define MAXIMUM_BATCH_RENDERER_ELEMENTS (64*1024)
+#endif
+
+#ifndef MAXIMUM_BATCH_RENDERER_ACTIVE_TEXTURES
+#define MAXIMUM_BATCH_RENDERER_ACTIVE_TEXTURES 8
+#endif
+
+#ifndef POSITION_SHADER_ATTRIBUTE_LOCATION
+#define POSITION_SHADER_ATTRIBUTE_LOCATION 0
+#endif 
+
+#ifndef COLOR_SHADER_ATTRIBUTE_LOCATION
+#define COLOR_SHADER_ATTRIBUTE_LOCATION 1
+#endif 
+
+#ifndef TEXCOORDS_SHADER_ATTRIBUTE_LOCATION
+#define TEXCOORDS_SHADER_ATTRIBUTE_LOCATION 2
+#endif 
+
+#ifndef TEXTURE_INDEX_SHADER_ATTRIBUTE_LOCATION
+#define TEXTURE_INDEX_SHADER_ATTRIBUTE_LOCATION 3
+#endif 
+
+#ifndef TEXTURE_SAMPLERS_SHADER_UNIFORM_LOCATION
+#define TEXTURE_SAMPLERS_SHADER_UNIFORM_LOCATION 4
+#endif 
+
+#ifndef PROJECTION_MATRIX_SHADER_UNIFORM_LOCATION
+#define PROJECTION_MATRIX_SHADER_UNIFORM_LOCATION 5
+#endif 
+
+#ifndef VIEW_MATRIX_SHADER_UNIFORM_LOCATION
+#define VIEW_MATRIX_SHADER_UNIFORM_LOCATION 6
+#endif 
+
+#ifndef MODEL_MATRIX_SHADER_UNIFORM_LOCATION
+#define MODEL_MATRIX_SHADER_UNIFORM_LOCATION 7
+#endif 
+
+#ifndef POSITION_SHADER_ATTRIBUTE_NAME
+#define POSITION_SHADER_ATTRIBUTE_NAME "a_Position"
+#endif 
+
+#ifndef COLOR_SHADER_ATTRIBUTE_NAME
+#define COLOR_SHADER_ATTRIBUTE_NAME "a_Color"
+#endif 
+
+#ifndef TEXCOORDS_SHADER_ATTRIBUTE_NAME
+#define TEXCOORDS_SHADER_ATTRIBUTE_NAME "a_TexCoords"
+#endif 
+
+#ifndef TEXTURE_INDEX_SHADER_ATTRIBUTE_NAME
+#define TEXTURE_INDEX_SHADER_ATTRIBUTE_NAME "a_TextureIndex"
+#endif 
+
+#ifndef TEXTURE_SAMPLERS_SHADER_UNIFORM_NAME
+#define TEXTURE_SAMPLERS_SHADER_UNIFORM_NAME "u_Textures"
+#endif 
+
+#ifndef PROJECTION_MATRIX_SHADER_UNIFORM_NAME
+#define PROJECTION_MATRIX_SHADER_UNIFORM_NAME "u_Projection"
+#endif 
+
+#ifndef VIEW_MATRIX_SHADER_UNIFORM_NAME
+#define VIEW_MATRIX_SHADER_UNIFORM_NAME "u_View"
+#endif 
+
+#ifndef MODEL_MATRIX_SHADER_UNIFORM_NAME
+#define MODEL_MATRIX_SHADER_UNIFORM_NAME "u_Model"
+#endif 
+
+//////////////////////////////////////////////////////////////
+///
+/// Type definitions
+///
 
 #ifndef NOMATH_TYPES
 #define NOMATH_TYPES
+
 typedef union Vector2 {
     float elements[2];
     struct {
@@ -119,6 +279,7 @@ typedef union Matrix {
     float elements[4*4];
     Vector4 rows[4];
 } Matrix;
+
 #endif // NOMATH_TYPES
 
 typedef struct Rectangle {
@@ -141,7 +302,6 @@ typedef struct Shader {
     int *locs;
 } Shader;
 
-// Basically stbtt_bakedchar
 typedef struct Texture {
     uint32_t ID;
     uint32_t width, height;
@@ -150,21 +310,15 @@ typedef struct Texture {
 
 typedef struct GlyphInfo {
     int codepoint;
-
-    int offsetX;
-    int offsetY;
-    int advanceX;
-    Image image;
+    float s0, t0;
+    float s1, t1;
 } GlyphInfo;
 
 typedef struct TextFont {
     Texture texture;
     Image atlas;
-    GlyphInfo *glyphsInfo;
-    Rectangle *recs;
-    uint32_t glyphsCount;
-    uint32_t baseSize;
-    float glyphPadding;
+    GlyphInfo *glyphs;
+    int glyphsCount;
 } TextFont;
 
 #define WHITE CLITERAL(Color){ .r = 0xFF, .g=0xFF, .b=0xFF, .a=0xFF }
@@ -173,9 +327,10 @@ typedef struct TextFont {
 #define GREEN CLITERAL(Color){ .r = 0x00, .g=0xFF, .b=0x00, .a=0xFF }
 #define BLUE  CLITERAL(Color){ .r = 0x00, .g=0x00, .b=0xFF, .a=0xFF }
 
-/*******************************
- * Functions
- *******************************/
+//////////////////////////////////////////////////////////////
+///
+/// Functions
+///
 
 /// Utility functions
 
@@ -227,11 +382,11 @@ bool LoadImageFromFile(Image *image, const char *filePath);
 bool LoadImage(Image *image, const uint8_t *data, uint32_t width, uint32_t height, uint32_t compAmount);
 void UnloadImage(Image image);
 
-/// Text Font
-bool LoadFontEx(TextFont *font, const uint8_t *fontData, size_t dataSize, uint32_t fontSize, uint32_t bitmapWidth, uint32_t bitmapHeight, int codepointCount, int *codepoints);
-int GetGlyphIndex(TextFont font, int codepoint);
-bool LoadFontFromFile(TextFont *font, const char *filePath);
+/// Font
+
+bool LoadFont(TextFont *font, const uint8_t *fontBuffer, int fontSize, int codepointAmount, int *codepoints);
 void UnloadFont(TextFont font);
+void DrawTextEx(TextFont font, const char *text, int fontSize, Vector2 pos);
 
 /// Textures
 
@@ -272,9 +427,6 @@ void DrawTexture(Texture texture, int x, int y, uint32_t w, uint32_t h);
 void DrawTextureEx(Texture texture, Rectangle src, Rectangle dst);
 void DrawTriangle(Color color, int x1, int y1, int x2, int y2, int x3, int y3);
 void DrawCircle(Color color, int cx, int cy, uint32_t r);
-void DrawText(TextFont font, const char *text, int posX, int posY, int fontSize, Color color);
-void DrawTextEx(TextFont font, const char *text, Vector2 position, float fontSize, float spacing, Color tint, int lineSpacing);
-
 
 /// OpenGL
 

@@ -3,23 +3,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "stb_image_write.h"
-
-bool LoadTextureFromFile(Texture *texture, const char *filePath)
-{
-    Image image;
-    LoadImageFromFile(&image,filePath);
-    bool result = LoadTextureFromImage(texture, image);
-    UnloadImage(image);
-    return result;
-}
-
-bool LoadTextureFromImage(Texture *result, Image image)
-{
-    return LoadTexture(result, image.data, image.width, image.height, image.compAmount);
-}
-
 bool LoadImageFromFile(Image *image, const char *filePath)
 {
     int w, h, bpp;
@@ -51,7 +34,17 @@ void UnloadImage(Image image)
         MemoryFree(image.data);
 }
 
-bool SaveImagePNG(Image image, const char *filePath)
+bool LoadTextureFromFile(Texture *texture, const char *filePath)
 {
-    return stbi_write_png(filePath, image.width, image.height, image.compAmount, image.data, image.width);
+    Image image;
+    LoadImageFromFile(&image,filePath);
+    bool result = LoadTextureFromImage(texture, image);
+    UnloadImage(image);
+    return result;
 }
+
+bool LoadTextureFromImage(Texture *result, Image image)
+{
+    return LoadTexture(result, image.data, image.width, image.height, image.compAmount);
+}
+
