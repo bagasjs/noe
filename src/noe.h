@@ -310,21 +310,15 @@ typedef struct Texture {
 
 typedef struct GlyphInfo {
     int codepoint;
-
-    int offsetX;
-    int offsetY;
-    int advanceX;
-    Image image;
+    float s0, t0;
+    float s1, t1;
 } GlyphInfo;
 
 typedef struct TextFont {
     Texture texture;
     Image atlas;
-    GlyphInfo *glyphsInfo;
-    Rectangle *recs;
-    uint32_t glyphsCount;
-    uint32_t baseSize;
-    float glyphPadding;
+    GlyphInfo *glyphs;
+    int glyphsCount;
 } TextFont;
 
 #define WHITE CLITERAL(Color){ .r = 0xFF, .g=0xFF, .b=0xFF, .a=0xFF }
@@ -388,11 +382,11 @@ bool LoadImageFromFile(Image *image, const char *filePath);
 bool LoadImage(Image *image, const uint8_t *data, uint32_t width, uint32_t height, uint32_t compAmount);
 void UnloadImage(Image image);
 
-/// Text Font
-bool LoadFontEx(TextFont *font, const uint8_t *fontData, size_t dataSize, uint32_t fontSize, uint32_t bitmapWidth, uint32_t bitmapHeight, int codepointCount, int *codepoints);
-int GetGlyphIndex(TextFont font, int codepoint);
-bool LoadFontFromFile(TextFont *font, const char *filePath);
+/// Font
+
+bool LoadFont(TextFont *font, const uint8_t *fontBuffer, int fontSize, int codepointAmount, int *codepoints);
 void UnloadFont(TextFont font);
+void DrawTextEx(TextFont font, const char *text, int fontSize, Vector2 pos);
 
 /// Textures
 
@@ -433,9 +427,6 @@ void DrawTexture(Texture texture, int x, int y, uint32_t w, uint32_t h);
 void DrawTextureEx(Texture texture, Rectangle src, Rectangle dst);
 void DrawTriangle(Color color, int x1, int y1, int x2, int y2, int x3, int y3);
 void DrawCircle(Color color, int cx, int cy, uint32_t r);
-void DrawText(TextFont font, const char *text, int posX, int posY, int fontSize, Color color);
-void DrawTextEx(TextFont font, const char *text, Vector2 position, float fontSize, float spacing, Color tint, int lineSpacing);
-
 
 /// OpenGL
 

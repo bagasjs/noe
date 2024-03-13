@@ -8,6 +8,25 @@
 
 #include <glad/glad.h>
 
+typedef struct GlyphInfo {
+    int codepoint;
+
+    int offsetX;
+    int offsetY;
+    int advanceX;
+    Image image;
+} GlyphInfo;
+
+typedef struct TextFont {
+    Texture texture;
+    Image atlas;
+    GlyphInfo *glyphsInfo;
+    Rectangle *recs;
+    uint32_t glyphsCount;
+    uint32_t baseSize;
+    float glyphPadding;
+} TextFont;
+
 bool LoadFontGlyphs(TextFont *font, const uint8_t *fontData, uint32_t fontSize, int codepointAmount, int *codepoints)
 {
     stbtt_fontinfo info;

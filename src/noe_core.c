@@ -383,10 +383,28 @@ void RenderViewport(int x, int y, uint32_t width, uint32_t height)
 
 int RenderEnableTexture(Texture texture)
 {
-    int index = APP.renderer.activeTextureIDs.count;
-    APP.renderer.activeTextureIDs.data[index] = texture.ID;
-    APP.renderer.activeTextureIDs.count += 1;
-    return index;
+    for(int i = 0; i < MAXIMUM_BATCH_RENDERER_ACTIVE_TEXTURES; ++i) {
+        if(APP.renderer.activeTextureIDs.data[i] == texture.ID) 
+            return i;
+    }
+
+    if(APP.renderer.activeTextureIDs.count + 1 < MAXIMUM_BATCH_RENDERER_ACTIVE_TEXTURES) {
+        int index = APP.renderer.activeTextureIDs.count;
+        APP.renderer.activeTextureIDs.data[index] = texture.ID;
+        APP.renderer.activeTextureIDs.count += 1;
+        return index;
+    } else {
+        return -1;
+    }
+}
+
+void _DumpVertex(int i, const _RenderVertex *v)
+{
+    TRACELOG(LOG_DEBUG, "Vertex[%d](.x=%.4f,.y=%.4f,.z=%.4f,.r=%.4f,.g=%.4f,.b=%.4f,.a=%.4f,.u=.%.4f,.v=%.4f,.tid=%.4f",
+            i,
+            v->pos.x, v->pos.y, v->pos.z,
+            v->color.r, v->color.g, v->color.b, v->color.a,
+            v->texCoords.u, v->texCoords.v, v->textureIndex);
 }
 
 int RenderPutVertex(float x, float y, float z, float r, float g, float b, float a, float u, float v, int textureIndex)
@@ -691,21 +709,23 @@ void DrawTexture(Texture texture, int x, int y, uint32_t w, uint32_t h)
 void DrawTextureEx(Texture texture, Rectangle src, Rectangle dst)
 {
     int textureIndex = RenderEnableTexture(texture);
+    float width  = (float)texture.width;
+    float height = (float)texture.height;
     int tl = RenderPutVertex((float)dst.x, (float)dst.y, 0.0f,  
             0.0f, 0.0f, 0.0f, 0.0f, 
-            ((float)src.x)/texture.width, ((float)src.y)/texture.height, 
+            src.x/width, src.y/height, 
             textureIndex);
     int tr = RenderPutVertex((float)dst.x + (float)dst.width, (float)dst.y, 0.0f,  
             0.0f, 0.0f, 0.0f, 0.0f,
-            ((float)src.x + (float)src.width)/texture.width, ((float)src.y)/texture.height, 
+            (src.x + src.width)/texture.width, src.y/texture.height, 
             textureIndex);
     int br = RenderPutVertex((float)dst.x + (float)dst.width, (float)dst.y + (float)dst.height,  
             0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-            ((float)src.x + (float)src.width)/texture.width, ((float)src.y + (float)src.height)/texture.height, 
+            (src.x + src.width)/texture.width, (src.y + src.height)/texture.height, 
             textureIndex);
     int bl = RenderPutVertex((float)dst.x, (float)dst.y + (float)dst.height, 0.0f,
             0.0f, 0.0f, 0.0f, 0.0f,
-            ((float)src.x)/texture.width, ((float)src.y + (float)src.height)/texture.height, 
+            (src.x)/texture.width, (src.y + src.height)/texture.height, 
             textureIndex);
     RenderPutElement(tl);
     RenderPutElement(tr);
