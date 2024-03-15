@@ -6,6 +6,9 @@
 #define NOMATH_IMPLEMENTATION
 #include "nomath.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 static _ApplicationConfig CONFIG = {
     .window.width = 800,
     .window.height = 600,
@@ -129,18 +132,86 @@ void GLCheckLastError(int exitOnError)
     TRACELOG(LOG_DEBUG, "THERE'S NO ERROR");
 }
 
+bool LoadShaderDefault(void)
+{
+    const char *defaultVertexShaderSource = 
+        "#version 330 core\n"
+        "layout (location=0) in vec3 a_Position;\n"
+        "layout (location=1) in vec4 a_Color;\n"
+        "layout (location=2) in vec2 a_TexCoords;\n"
+        "layout (location=3) in float a_TextureIndex;\n"
+        "out vec4 v_Color;\n"
+        "out vec2 v_TexCoords;\n"
+        "out float v_TextureIndex;\n"
+        "uniform mat4 u_MVP;\n"
+        "void main() {\n"
+        "    gl_Position = u_MVP * vec4(a_Position, 1.0);\n"
+        "    v_Color = a_Color;\n"
+        "    v_TexCoords = a_TexCoords;\n"
+        "    v_TextureIndex = a_TextureIndex;\n"
+        "}\n";
+
+    const char *defaultFragmentShaderSource =
+        "#version 330 core\n"
+        "layout (location=0) out vec4 o_FragColor;\n"
+        "in vec4 v_Color;\n"
+        "in vec2 v_TexCoords;\n"
+        "in float v_TextureIndex;\n"
+        "uniform sampler2D u_Textures[8];\n"
+        "void main() {\n"
+        "    switch(int(v_TextureIndex)) {\n"
+        "        case 0:\n"
+        "            o_FragColor = texture(u_Textures[0], v_TexCoords.xy) * v_Color;\n"
+        "            break;\n"
+        "        case 1:\n"
+        "            o_FragColor = texture(u_Textures[1], v_TexCoords.xy) * v_Color;\n"
+        "            break;\n"
+        "        case 2:\n"
+        "            o_FragColor = texture(u_Textures[2], v_TexCoords.xy) * v_Color;\n"
+        "            break;\n"
+        "        case 3:\n"
+        "            o_FragColor = texture(u_Textures[3], v_TexCoords.xy) * v_Color;\n"
+        "            break;\n"
+        "        case 4:\n"
+        "            o_FragColor = texture(u_Textures[4], v_TexCoords.xy) * v_Color;\n"
+        "            break;\n"
+        "        case 5:\n"
+        "            o_FragColor = texture(u_Textures[5], v_TexCoords.xy) * v_Color;\n"
+        "            break;\n"
+        "        case 6:\n"
+        "            o_FragColor = texture(u_Textures[6], v_TexCoords.xy) * v_Color;\n"
+        "            break;\n"
+        "        case 7:\n"
+        "            o_FragColor = texture(u_Textures[7], v_TexCoords.xy) * v_Color;\n"
+        "            break;\n"
+        "        default:\n"
+        "            o_FragColor = v_Color;\n"
+        "            break;\n"
+        "    }\n"
+        "}\n";
+
+    return LoadShader(&APP.renderer.defaultShader, defaultVertexShaderSource, defaultFragmentShaderSource);
+}
+
 bool initBatchRenderer(void)
 {
-    gladLoadGL();
-
+    gladLoadGLLoader((GLADloadproc)GLGetProcAddress);
 
     APP.renderer.config.supportVAO = CONFIG.opengl.useCoreProfile;
     APP.renderer.vertices.count = 0;
     APP.renderer.elements.count = 0;
     APP.renderer.activeTextureIDs.count = 0;
+    APP.renderer.modelView = MatrixCreate(1.0f);
+    APP.renderer.projection = MatrixCreate(1.0f);
+    APP.renderer.mvp = MatrixCreate(1.0f);
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    if(!LoadShaderDefault()) {
+        TRACELOG(LOG_FATAL, "Failed to load default shader");
+        return false;
+    }
 
     if(APP.renderer.config.supportVAO) {
         APP.renderer.config.supportVAO = true;
@@ -174,9 +245,10 @@ bool initBatchRenderer(void)
 
 void deinitBatchRenderer(void)
 {
-    if(APP.renderer.config.supportVAO) glDeleteVertexArrays(1, &APP.renderer.vaoID);
+    UnloadShader(APP.renderer.defaultShader);
     glDeleteBuffers(1, &APP.renderer.eboID);
     glDeleteBuffers(1, &APP.renderer.vboID);
+    if(APP.renderer.config.supportVAO) glDeleteVertexArrays(1, &APP.renderer.vaoID);
 }
 
 bool InitApplication(void)
@@ -198,12 +270,6 @@ bool InitApplication(void)
     return true;
 }
 
-_ApplicationState *_GetApplicationState(const char *functionName)
-{
-    NOE_REQUIRE_INIT_OR_RETURN(NULL, "`%s()` requires you to call `InitApplication()`", functionName);
-    return &APP;
-}
-
 void DeinitApplication(void)
 {
     if(!APP.initialized) return;
@@ -211,6 +277,12 @@ void DeinitApplication(void)
     deinitBatchRenderer();
 #endif
     _DeinitPlatform(&APP);
+}
+
+_ApplicationState *_GetApplicationState(const char *functionName)
+{
+    NOE_REQUIRE_INIT_OR_RETURN(NULL, "`%s()` requires you to call `InitApplication()`", functionName);
+    return &APP;
 }
 
 void PollInputEvents(void)
@@ -233,7 +305,7 @@ void PollInputEvents(void)
     _PollPlatformEvents(&APP);
 }
 
-Vector2 GetCursorPos(void)
+Vector2 GetCursorPosition(void)
 {
     Vector2 result = (Vector2){.x=0.0f, .y=0.0f};
     NOE_REQUIRE_INIT_OR_RETURN(result, "`GetCursorPos()` requires you to call `InitApplication()`");
@@ -403,6 +475,7 @@ void RenderFlush(Shader shader)
         glBindTexture(GL_TEXTURE_2D, APP.renderer.activeTextureIDs.data[i]);
     }
 
+    glUniformMatrix4fv(shader.locs[MVP_MATRIX_SHADER_UNIFORM_LOCATION], 1, GL_FALSE, APP.renderer.mvp.elements);
     glUniform1iv(shader.locs[TEXTURE_SAMPLERS_SHADER_UNIFORM_LOCATION],
             MAXIMUM_BATCH_RENDERER_ACTIVE_TEXTURES, textureUnits);
 
@@ -481,6 +554,45 @@ void RenderPutElement(int vertexIndex)
     APP.renderer.elements.count += 1;
 }
 
+bool LoadImage(Image *image, const uint8_t *data, uint32_t width, uint32_t height, uint32_t compAmount)
+{
+    if(!image || !data) {
+        TRACELOG(LOG_INFO, "Failed to load image due to null argument");
+        return false;
+    }
+
+    const size_t imageSize = sizeof(uint8_t) * width * height * compAmount;
+    image->data = MemoryAlloc(imageSize);
+    MemoryCopy(image->data, data, imageSize);
+    image->compAmount = compAmount;
+    image->width = width;
+    image->height = height;
+    return true;
+}
+
+bool LoadImageFromFile(Image *image, const char *filePath)
+{
+    int w, h, bpp;
+    size_t fileSize = 0;
+    uint8_t *fileData = LoadFileData(filePath, &fileSize);
+    if(!fileData) {
+        TRACELOG(LOG_ERROR, "Failed to load image `%s` file data", filePath);
+        return false;
+    }
+
+    const stbi_uc *data = stbi_load_from_memory(fileData, fileSize, &w, &h, &bpp, 0);
+    bool result = LoadImage(image, data, w, h, bpp);
+    stbi_image_free((void *)data);
+    UnloadFileData(fileData);
+    return result;
+}
+
+void UnloadImage(Image image)
+{
+    if(image.data) 
+        MemoryFree(image.data);
+}
+
 bool LoadTexture(Texture *texture, const uint8_t *data, uint32_t width, uint32_t height, uint32_t compAmount)
 {
     if(!texture) return false;
@@ -518,9 +630,27 @@ bool LoadTexture(Texture *texture, const uint8_t *data, uint32_t width, uint32_t
     return true;
 }
 
+bool LoadTextureFromFile(Texture *texture, const char *filePath)
+{
+    Image image;
+    if(!LoadImageFromFile(&image,filePath)) {
+        TRACELOG(LOG_ERROR, "Failed to load image to create texture");
+        return false;
+    }
+    bool result = LoadTexture(texture, image.data, image.width, image.height, image.compAmount);
+    UnloadImage(image);
+    return result;
+}
+
+
 void UnloadTexture(Texture texture)
 {
     glDeleteTextures(1, &texture.ID);
+}
+
+Shader GetDefaultShader(void)
+{
+    return APP.renderer.defaultShader;
 }
 
 bool LoadShader(Shader *shader, const char *vertSource, const char *fragSource)
@@ -601,14 +731,8 @@ bool LoadShader(Shader *shader, const char *vertSource, const char *fragSource)
     GET_LOCATION_OF(GetShaderUniformLocation, TEXTURE_SAMPLERS_SHADER_UNIFORM_NAME, true);
     shader->locs[TEXTURE_SAMPLERS_SHADER_UNIFORM_LOCATION] = loc;
 
-    GET_LOCATION_OF(GetShaderUniformLocation, PROJECTION_MATRIX_SHADER_UNIFORM_NAME, false);
-    shader->locs[PROJECTION_MATRIX_SHADER_UNIFORM_LOCATION] = loc;
-
-    GET_LOCATION_OF(GetShaderUniformLocation, VIEW_MATRIX_SHADER_UNIFORM_NAME, false);
-    shader->locs[VIEW_MATRIX_SHADER_UNIFORM_LOCATION] = loc;
-
-    GET_LOCATION_OF(GetShaderUniformLocation, MODEL_MATRIX_SHADER_UNIFORM_NAME, false);
-    shader->locs[MODEL_MATRIX_SHADER_UNIFORM_LOCATION] = loc;
+    GET_LOCATION_OF(GetShaderUniformLocation, MVP_MATRIX_SHADER_UNIFORM_NAME, false);
+    shader->locs[MVP_MATRIX_SHADER_UNIFORM_LOCATION] = loc;
 #undef GET_LOCATION_OF
 
     glUseProgram(0);
@@ -631,22 +755,16 @@ int GetShaderAttributeLocation(Shader shader, const char *attributeName)
     return glGetAttribLocation(shader.ID, attributeName);
 }
 
-void SetProjectionMatrixUniform(Shader shader, float *matrixData)
+void SetProjectionMatrix(Matrix projection)
 {
-    SetShaderUniform(shader, shader.locs[PROJECTION_MATRIX_SHADER_UNIFORM_LOCATION],
-            SHADER_UNIFORM_MAT4, (void *)matrixData, 1, false);
+    APP.renderer.projection = projection;
+    APP.renderer.mvp = MatrixDot(APP.renderer.projection, APP.renderer.modelView);
 }
 
-void SetViewMatrixUniform(Shader shader, float *matrixData)
+void SetModelViewMatrix(Matrix modelView)
 {
-    SetShaderUniform(shader, shader.locs[VIEW_MATRIX_SHADER_UNIFORM_LOCATION],
-            SHADER_UNIFORM_MAT4, (void *)matrixData, 1, false);
-}
-
-void SetModelMatrixUniform(Shader shader, float *matrixData)
-{
-    SetShaderUniform(shader, shader.locs[MODEL_MATRIX_SHADER_UNIFORM_LOCATION],
-            SHADER_UNIFORM_MAT4, (void *)matrixData, 1, false);
+    APP.renderer.modelView = modelView;
+    APP.renderer.mvp = MatrixDot(APP.renderer.projection, APP.renderer.modelView);
 }
 
 void SetShaderUniform(Shader shader, int location, int uniformType, const void *data, int count, bool transposeIfMatrix)
@@ -716,22 +834,25 @@ bool LoadShaderFromFile(Shader *shader, const char *vertSourceFilePath, const ch
 
 void ClearBackground(Color color)
 {
-    RenderClear(COLOR2VECTOR4(color));
+    Vector4 vc = COLOR2VECTOR4(color);
+    RenderClear(vc.r, vc.g, vc.b, vc.a);
 }
 
 void DrawTriangle(Color color, float x1, float y1, float x2, float y2, float x3, float y3)
 {
-    RenderPutElement(RenderPutVertex(x1, y1, 0.0f, COLOR2VECTOR4(color), 0.0f, 0.0f, -1.0f));
-    RenderPutElement(RenderPutVertex(x2, y2, 0.0f, COLOR2VECTOR4(color), 0.0f, 0.0f, -1.0f));
-    RenderPutElement(RenderPutVertex(x3, y3, 0.0f, COLOR2VECTOR4(color), 0.0f, 0.0f, -1.0f));
+    Vector4 vc = COLOR2VECTOR4(color);
+    RenderPutElement(RenderPutVertex(x1, y1, 0.0f, vc.r, vc.g, vc.b, vc.a, 0.0f, 0.0f, -1.0f));
+    RenderPutElement(RenderPutVertex(x2, y2, 0.0f, vc.r, vc.g, vc.b, vc.a, 0.0f, 0.0f, -1.0f));
+    RenderPutElement(RenderPutVertex(x3, y3, 0.0f, vc.r, vc.g, vc.b, vc.a, 0.0f, 0.0f, -1.0f));
 }
 
 void DrawRectangle(Color color, float x, float y, float w, float h)
 {
-    int v0 = RenderPutVertex(x,  y, 0.0f, COLOR2VECTOR4(color), 0.0f, 0.0f, -1.0f);
-    int v1 = RenderPutVertex(x + w,  y, 0.0f, COLOR2VECTOR4(color), 0.0f, 0.0f, -1.0f);
-    int v2 = RenderPutVertex(x + w,  y + h, 0.0f, COLOR2VECTOR4(color), 0.0f, 0.0f, -1.0f);
-    int v3 = RenderPutVertex(x,  y + h, 0.0f, COLOR2VECTOR4(color), 0.0f, 0.0f, -1.0f);
+    Vector4 vc = COLOR2VECTOR4(color);
+    int v0 = RenderPutVertex(x,  y, 0.0f, vc.r, vc.g, vc.b, vc.a, 0.0f, 0.0f, -1.0f);
+    int v1 = RenderPutVertex(x + w,  y, 0.0f, vc.r, vc.g, vc.b, vc.a, 0.0f, 0.0f, -1.0f);
+    int v2 = RenderPutVertex(x + w,  y + h, 0.0f, vc.r, vc.g, vc.b, vc.a, 0.0f, 0.0f, -1.0f);
+    int v3 = RenderPutVertex(x,  y + h, 0.0f, vc.r, vc.g, vc.b, vc.a, 0.0f, 0.0f, -1.0f);
     RenderPutElement(v0);
     RenderPutElement(v1);
     RenderPutElement(v2);
@@ -744,16 +865,16 @@ void DrawTexture(Texture texture, float x, float y, float w, float h)
 {
     int textureIndex = RenderEnableTexture(texture);
     int tl = RenderPutVertex(x, y, 0.0f,  
-            0.0f, 0.0f, 0.0f, 0.0f, 
+            1.0f, 1.0f, 1.0f, 1.0f, 
             0.0f, 0.0f, textureIndex);
     int tr = RenderPutVertex(x + w, y, 0.0f,  
-            0.0f, 0.0f, 0.0f, 0.0f,
+            1.0f, 1.0f, 1.0f, 1.0f,
             1.0f, 0.0f, textureIndex);
-    int br = RenderPutVertex(x + w, y + h,  
-            0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+    int br = RenderPutVertex(x + w, y + h, 0.0f,
+            1.0f, 1.0f, 1.0f, 1.0f,
             1.0f, 1.0f, textureIndex);
     int bl = RenderPutVertex(x, y + h, 0.0f,
-            0.0f, 0.0f, 0.0f, 0.0f,
+            1.0f, 1.0f, 1.0f, 1.0f,
             0.0f, 1.0f, textureIndex);
     RenderPutElement(tl);
     RenderPutElement(tr);
@@ -768,20 +889,21 @@ void DrawTextureEx(Texture texture, Rectangle src, Rectangle dst, Color tint)
     int textureIndex = RenderEnableTexture(texture);
     float width  = (float)texture.width;
     float height = (float)texture.height;
+    Vector4 vc = COLOR2VECTOR4(tint);
     int tl = RenderPutVertex((float)dst.x, (float)dst.y, 0.0f,  
-            COLOR2VECTOR4(tint),
+            vc.r, vc.g, vc.b, vc.a,
             src.x/width, src.y/height, 
             textureIndex);
     int tr = RenderPutVertex((float)dst.x + (float)dst.width, (float)dst.y, 0.0f,  
-            COLOR2VECTOR4(tint),
+            vc.r, vc.g, vc.b, vc.a,
             (src.x + src.width)/texture.width, src.y/texture.height, 
             textureIndex);
     int br = RenderPutVertex((float)dst.x + (float)dst.width, (float)dst.y + (float)dst.height, 0.0f,
-            COLOR2VECTOR4(tint),
+            vc.r, vc.g, vc.b, vc.a,
             (src.x + src.width)/texture.width, (src.y + src.height)/texture.height, 
             textureIndex);
     int bl = RenderPutVertex((float)dst.x, (float)dst.y + (float)dst.height, 0.0f,
-            COLOR2VECTOR4(tint),
+            vc.r, vc.g, vc.b, vc.a,
             (src.x)/texture.width, (src.y + src.height)/texture.height, 
             textureIndex);
     RenderPutElement(tl);

@@ -139,7 +139,8 @@
 
 #define HEX2COLOR(hex) ((Color){(hex >> 24) & 0xFF, (hex >> 16) & 0xFF, (hex >> 8) & 0xFF, hex & 0xFF})
 #define COLOR2HEX(c) ((c.r << 24) | (c.g << 16) | (c.b << 8) | c.a)
-#define COLOR2VECTOR4(c) ((float)(c).r/255.0f),((float)(c).g/255.0f),((float)(c).b/255.0f),((float)(c).a/255.0f)
+#define COLOR2VECTOR4(c) \
+    ((Vector4){ .r=((float)(c).r/255.0f), .g=((float)(c).g/255.0f), .b=((float)(c).b/255.0f), .a=((float)(c).a/255.0f) })
 
 //////////////////////////////////////////////////////////////
 ///
@@ -198,16 +199,8 @@
 #define TEXTURE_SAMPLERS_SHADER_UNIFORM_LOCATION 4
 #endif 
 
-#ifndef PROJECTION_MATRIX_SHADER_UNIFORM_LOCATION
-#define PROJECTION_MATRIX_SHADER_UNIFORM_LOCATION 5
-#endif 
-
-#ifndef VIEW_MATRIX_SHADER_UNIFORM_LOCATION
-#define VIEW_MATRIX_SHADER_UNIFORM_LOCATION 6
-#endif 
-
-#ifndef MODEL_MATRIX_SHADER_UNIFORM_LOCATION
-#define MODEL_MATRIX_SHADER_UNIFORM_LOCATION 7
+#ifndef MVP_MATRIX_SHADER_UNIFORM_LOCATION
+#define MVP_MATRIX_SHADER_UNIFORM_LOCATION 5
 #endif 
 
 #ifndef POSITION_SHADER_ATTRIBUTE_NAME
@@ -230,16 +223,8 @@
 #define TEXTURE_SAMPLERS_SHADER_UNIFORM_NAME "u_Textures"
 #endif 
 
-#ifndef PROJECTION_MATRIX_SHADER_UNIFORM_NAME
-#define PROJECTION_MATRIX_SHADER_UNIFORM_NAME "u_Projection"
-#endif 
-
-#ifndef VIEW_MATRIX_SHADER_UNIFORM_NAME
-#define VIEW_MATRIX_SHADER_UNIFORM_NAME "u_View"
-#endif 
-
-#ifndef MODEL_MATRIX_SHADER_UNIFORM_NAME
-#define MODEL_MATRIX_SHADER_UNIFORM_NAME "u_Model"
+#ifndef MVP_MATRIX_SHADER_UNIFORM_NAME
+#define MVP_MATRIX_SHADER_UNIFORM_NAME "u_MVP"
 #endif 
 
 //////////////////////////////////////////////////////////////
@@ -394,13 +379,19 @@ NAPI bool IsMouseButtonReleased(int button);
 NAPI bool IsMouseButtonDown(int button);
 NAPI bool IsMouseButtonUp(int button);
 NAPI bool IsFrameResized(void);
-NAPI Vector2 GetCursorPos(void);
+NAPI Vector2 GetCursorPosition(void);
 
 /// Image
 
 NAPI bool LoadImageFromFile(Image *image, const char *filePath);
 NAPI bool LoadImage(Image *image, const uint8_t *data, uint32_t width, uint32_t height, uint32_t compAmount);
 NAPI void UnloadImage(Image image);
+
+/// Textures
+
+NAPI bool LoadTextureFromFile(Texture *texture, const char *filePath);
+NAPI bool LoadTexture(Texture *result, const uint8_t *data, uint32_t width, uint32_t height, uint32_t compAmount);
+NAPI void UnloadTexture(Texture texture);
 
 /// Font
 
@@ -409,21 +400,14 @@ NAPI void UnloadFont(TextFont font);
 NAPI Vector2 GetTextDimension(TextFont font, const char *text, int fontSize);
 void DrawTextEx(TextFont font, const char *text, int fontSize, Vector2 pos, Color color);
 
-/// Textures
-
-NAPI bool LoadTextureFromFile(Texture *texture, const char *filePath);
-NAPI bool LoadTextureFromImage(Texture *result, Image image);
-NAPI bool LoadTexture(Texture *result, const uint8_t *data, uint32_t width, uint32_t height, uint32_t compAmount);
-NAPI void UnloadTexture(Texture texture);
-
 /// Shaders
 
 NAPI bool LoadShader(Shader *result, const char *vertSource, const char *fragSource);
-NAPI bool LoadShaderFromFile(Shader *result, const char *vertSourceFilePath, const char *fragSourceFilePath);
 NAPI void UnloadShader(Shader shader);
-NAPI void SetProjectionMatrixUniform(Shader shader, float *matrixData);
-NAPI void SetViewMatrixUniform(Shader shader, float *matrixData);
-NAPI void SetModelMatrixUniform(Shader shader, float *matrixData);
+NAPI bool LoadShaderFromFile(Shader *result, const char *vertSourceFilePath, const char *fragSourceFilePath);
+NAPI Shader GetDefaultShader(void);
+NAPI void SetProjectionMatrix(Matrix projection);
+NAPI void SetModelViewMatrix(Matrix viewModel);
 NAPI void SetShaderUniform(Shader shader, int location, int uniformType, const void *data, int count, bool transposeIfMatrix);
 NAPI int GetShaderUniformLocation(Shader shader, const char *uniformName);
 NAPI int GetShaderAttributeLocation(Shader shader, const char *attributeName);
@@ -451,8 +435,8 @@ NAPI void DrawCircle(Color color, int cx, int cy, uint32_t r);
 
 /// OpenGL
 
-NAPI void GLSwapBuffers(void);
-NAPI void GLGetProc(const char *procName);
+NAPI void  GLSwapBuffers(void);
+NAPI void *GLGetProcAddress(const char *procName);
 
 /// Desktop platform only
 

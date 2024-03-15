@@ -209,6 +209,11 @@ void GLSwapBuffers(void)
     glfwSwapBuffers(PLATFORM.window.handle);
 }
 
+void *GLGetProcAddress(const char *procName)
+{
+    return (void *)glfwGetProcAddress(procName);
+}
+
 bool IsWindowVisible(void)
 {
     return PLATFORM.window.visible;

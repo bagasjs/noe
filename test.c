@@ -27,7 +27,7 @@ bool UI_Button(Vector2 pos, const char *text, UI_Style style)
     pos.y += style.padding;
     DrawTextEx(style.font, text, style.fontSize, pos, BLUE);
 
-    Vector2 cursor = GetCursorPos();
+    Vector2 cursor = GetCursorPosition();
     bool is_pressed = IsMouseButtonPressed(MOUSE_BUTTON_LEFT)
         && (r.x <= cursor.x && cursor.x <= (r.x + r.width))
         && (r.y <= cursor.y && cursor.y <= (r.y + r.height));
@@ -46,16 +46,16 @@ int main(void)
     }
 
     Texture texture;
-    if(!LoadTextureFromFile(&texture, "./res/ikan.png")) {
+    if(!LoadTextureFromFile(&texture, "./res/ikan.jpg")) {
         TRACELOG(LOG_FATAL, "Failed to load texture");
         return -1;
     }
 
     Matrix projection = MatrixOrthographic(0.0f, WIDTH, HEIGHT, 0.0f, -1.0f, 1.0f);
-    SetProjectionMatrixUniform(shader, projection.elements);
+    SetProjectionMatrix(projection);
 
     TextFont font;
-    uint8_t *data = LoadFileData("./res/firacode.ttf", 0);
+    uint8_t *data = LoadFileData("./res/inter.ttf", 0);
     LoadFont(&font, data, 64, 0, NULL);
 
     UI_Style style;
@@ -67,9 +67,14 @@ int main(void)
     while(!WindowShouldClose()) {
         PollInputEvents();
         if(IsKeyPressed(KEY_ESCAPE)) break;
+
         ClearBackground(HEX2COLOR(0x202020FF));
+
         if(UI_Button((Vector2){.x=10.0f, .y=10.0f}, "CLICK ME!", style)) 
             style.background = COLOR2HEX(style.background) != COLOR2HEX(RED) ? RED : GREEN;
+
+        DrawTexture(texture, 200, 200, (float)texture.width, (float)texture.height);
+
         RenderFlush(shader);
         RenderPresent();
     }

@@ -106,7 +106,7 @@ bool LoadFont(TextFont *font, const uint8_t *fontBuffer, int fontSize, int codep
     font->glyphs = chars;
     font->glyphsCount = codepointAmount;
 
-    if(!LoadTextureFromImage(&font->texture, atlas)) {
+    if(!LoadTexture(&font->texture, atlas.data, atlas.width, atlas.height, atlas.compAmount)) {
         UnloadImage(font->atlas);
         MemoryFree(font->glyphs);
         return false;

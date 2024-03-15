@@ -40,6 +40,9 @@ typedef struct _BatchRendererState {
 
     uint32_t vaoID, vboID, eboID;
     Shader defaultShader;
+    Matrix projection;
+    Matrix modelView;
+    Matrix mvp;
     struct {
         _RenderVertex data[MAXIMUM_BATCH_RENDERER_VERTICES];
         uint32_t count;

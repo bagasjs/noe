@@ -9,10 +9,10 @@ out vec4 v_Color;
 out vec2 v_TexCoords;
 out float v_TextureIndex;
 
-uniform mat4 u_Projection;
+uniform mat4 u_MVP;
 
 void main() {
-    gl_Position = u_Projection * vec4(a_Position, 1.0);
+    gl_Position = u_MVP * vec4(a_Position, 1.0);
     v_Color = a_Color;
     v_TexCoords = a_TexCoords;
     v_TextureIndex = a_TextureIndex;

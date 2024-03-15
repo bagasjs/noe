@@ -9,10 +9,8 @@ NOE_CFLAGS="-Wall -Wextra -Wpedantic -fPIC -I./src/vendors/stb/ -I./src/vendors/
 NOE_SOURCES=(
     "./src/noe_core.c"
     "./src/noe_text.c"
-    "./src/noe_image.c"
 
     "./src/noe_platform_desktop.c"
-
     "./src/vendors/glad/src/glad.c"
 )
 
@@ -65,6 +63,17 @@ compile_sources() {
     done
 }
 
+link_staticlib() {
+    local name="$1"
+    local location="$2"
+    local lflags="$3"
+    shift 3
+    local objects=("$@")
+
+    echo "Linking lib$name.a"
+    ar -rcs "$location/lib$name.a" "${objects[@]}"
+}
+
 link_sharedlib() {
     local name="$1"
     local location="$2"
@@ -95,10 +104,6 @@ echo "--- Compiling NOE ---"
 compile_sources "$NOE_CFLAGS" "$BUILD_DIR/cache" "${NOE_SOURCES[@]}"
 
 echo "--- Linking ---"
-link_sharedlib "$NAME" "$BUILD_DIR" "$LFLAGS" "${OBJECTS[@]}"
-
-# Build test TEST
-echo "--- Building test --- "
-$CC -I./src/ -Wl,-rpath=$HOME/Programming/bagasjs/noe/build -o ./build/test ./test.c -Lbuild -lnoe
+link_staticlib "$NAME" "$BUILD_DIR" "$LFLAGS" "${OBJECTS[@]}"
 
 echo "DONE"
