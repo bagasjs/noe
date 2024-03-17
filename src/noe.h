@@ -116,6 +116,10 @@
 #define BIT(pos) (1 << (pos))
 #endif
 
+#ifndef CLAMP
+#define CLAMP(v, min, max) ((v) < (min) ? (min) : ((v) > (max) ? (max) : (v)))
+#endif
+
 #ifndef CLITERAL
     #ifdef __cplusplus
         #define CLITERAL(T) T
@@ -346,6 +350,10 @@ NAPI void *MemorySet(void *dst, int value, size_t length);
 NAPI void *MemoryCopy(void *dst, const void *src, size_t length);
 NAPI const char *GetFileExtension(const char *filePath);
 NAPI const char *GetFileName(const char *filePath);
+NAPI int StringFormatV(char *dst, size_t dstSize, const char *fmt, va_list ap);
+NAPI int StringFormat(char *dst, size_t dstSize, const char *fmt, ...);
+
+NAPI bool CheckColissionPointRec(Vector2 point, Rectangle rect);
 
 /// Platform core functions (required in every platform except file IO in web)
 
@@ -395,6 +403,7 @@ NAPI void UnloadTexture(Texture texture);
 
 /// Font
 
+NAPI bool LoadFontFromFile(TextFont *font, const char *filePath);
 NAPI bool LoadFont(TextFont *font, const uint8_t *fontBuffer, int fontSize, int codepointAmount, int *codepoints);
 NAPI void UnloadFont(TextFont font);
 NAPI Vector2 GetTextDimension(TextFont font, const char *text, int fontSize);

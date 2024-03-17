@@ -57,6 +57,7 @@ int main(void)
     TextFont font;
     uint8_t *data = LoadFileData("./res/inter.ttf", 0);
     LoadFont(&font, data, 64, 0, NULL);
+    UnloadFileData(data);
 
     UI_Style style;
     style.background = RED;

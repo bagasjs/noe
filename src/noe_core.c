@@ -1,6 +1,8 @@
 #include "noe.h"
 
 #include <glad/glad.h>
+#include <stdio.h> // TODO: change into stb_sprintf.h for web support
+
 #include "noe_internal.h"
 
 #define NOMATH_IMPLEMENTATION
@@ -58,6 +60,19 @@ void *MemoryCopy(void *dst, const void *src, size_t length)
     return dst;
 }
 
+int StringFormatV(char *dst, size_t dstSize, const char *fmt, va_list ap)
+{
+    return vsnprintf(dst, dstSize, fmt, ap);
+}
+
+int StringFormat(char *dst, size_t dstSize, const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    int writtenLength = StringFormatV(dst, dstSize, fmt, ap); 
+    va_end(ap);
+    return writtenLength;
+}
 char *StringCopy(char *dst, const char *src, size_t length)
 {
     for(size_t i = 0; i < length; ++i)
@@ -912,4 +927,10 @@ void DrawTextureEx(Texture texture, Rectangle src, Rectangle dst, Color tint)
     RenderPutElement(br);
     RenderPutElement(bl);
     RenderPutElement(tl);
+}
+
+bool CheckColissionPointRec(Vector2 point, Rectangle rect)
+{
+    return (point.x >= rect.x && point.x <= rect.x + rect.width &&
+            point.y >= rect.y && point.y <= rect.y + rect.height);
 }

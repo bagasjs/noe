@@ -3,6 +3,14 @@
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "stb_truetype.h"
 
+bool LoadFontFromFile(TextFont *font, const char *filePath)
+{
+    uint8_t *data = LoadFileData(filePath, 0);
+    bool result = LoadFont(font, data, 64, 0, NULL);
+    UnloadFileData(data);
+    return result;
+}
+
 bool LoadFont(TextFont *font, const uint8_t *fontBuffer, int fontSize, int codepointAmount, int *codepoints)
 {
     stbtt_fontinfo info;

@@ -1,3 +1,4 @@
+#include "noe.h"
 #include "noe_internal.h"
 #include <GLFW/glfw3.h>
 
@@ -39,7 +40,7 @@ void TraceLog(int logLevel, const char *fmt, ...)
     char logMessage[LOG_MESSAGE_MAXIMUM_LENGTH] = {0};
     va_list ap;
     va_start(ap, fmt);
-    vsnprintf(logMessage, LOG_MESSAGE_MAXIMUM_LENGTH, fmt, ap);
+    StringFormatV(logMessage, LOG_MESSAGE_MAXIMUM_LENGTH, fmt, ap);
     va_end(ap);
     switch(logLevel) {
         case LOG_FATAL:
@@ -181,7 +182,9 @@ bool _InitPlatform(_ApplicationState *app, _ApplicationConfig *config)
 void _DeinitPlatform(_ApplicationState *app)
 {
     (void)app;
+    TRACELOG(LOG_INFO, "Destroying window (desktop)");
     glfwDestroyWindow(PLATFORM.window.handle);
+    TRACELOG(LOG_INFO, "Deinitializing platform (desktop)");
     glfwTerminate();
 }
 
