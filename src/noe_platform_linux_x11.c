@@ -438,7 +438,7 @@ void makeGLContextCurrent(_PlatformDisplayState *display, _PlatformWindowState *
     }
 }
 
-bool initGLContextGLX(_PlatformState *platform, const _ApplicationConfig *config)
+bool initGLContextGLX(_PlatformState *platform, const ApplicationConfig *config)
 {
     GLXContext share = NULL;
     GLXContext result_context = NULL;
@@ -517,7 +517,7 @@ bool initGLContextGLX(_PlatformState *platform, const _ApplicationConfig *config
     return true;
 }
 
-bool _InitPlatform(_ApplicationState *app, _ApplicationConfig *config)
+bool _InitPlatform(_ApplicationState *app, ApplicationConfig *config)
 {
     (void)app;
     TRACELOG(LOG_INFO, "Initializing platform (Linux)");

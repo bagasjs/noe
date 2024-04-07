@@ -3,8 +3,8 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include <stdbool.h>
 #include <stdarg.h>
+#include <stdbool.h>
 
 //////////////////////////////////////////////////////////////
 ///
@@ -99,6 +99,15 @@
 #ifndef STATIC_ASSERT
 #define STATIC_ASSERT(COND) _Static_assert(COND, #COND)
 #endif // STATIC_ASSERT
+
+#if !defined(NOE_MALLOC) && !defined(NOE_FREE)
+#define NOE_MALLOC MemoryAlloc
+#define NOE_FREE MemoryFree
+#endif
+
+#if !defined(NOE_MALLOC) || !defined(NOE_FREE)
+#error "Please define both NOE_MALLOC and NOE_FREE macros"
+#endif
 
 #ifndef SIGN
 #define SIGN(T, a) (((T)(a) > 0) - ((T)(a) < 0))
@@ -330,6 +339,30 @@ typedef struct TextFont {
     int glyphsCount;
 } TextFont;
 
+typedef struct ApplicationConfig {
+    struct {
+        const char *title;
+        uint32_t width, height;
+        bool visible;
+        bool resizable;
+        bool fullScreen;
+        bool decorated;
+    } window;
+    struct {
+        // The context creation will use GLX on Linux X11 Display System or WGL on Windows 
+        // otherwise It will use EGL
+        bool useNative;
+        bool useCoreProfile;
+        bool useOpenglES;
+        bool useDebugContext;
+        bool forward;
+        struct {
+            int major;
+            int minor;
+        } version;
+    } opengl;
+} ApplicationConfig;
+
 #define WHITE CLITERAL(Color){ .r = 0xFF, .g=0xFF, .b=0xFF, .a=0xFF }
 #define BLACK CLITERAL(Color){ .r = 0x00, .g=0x00, .b=0x00, .a=0xFF }
 #define RED   CLITERAL(Color){ .r = 0xFF, .g=0x00, .b=0x00, .a=0xFF }
@@ -388,23 +421,25 @@ NAPI bool IsMouseButtonDown(int button);
 NAPI bool IsMouseButtonUp(int button);
 NAPI bool IsFrameResized(void);
 NAPI Vector2 GetCursorPosition(void);
+NAPI bool IsFileDropped(void);
+NAPI const char *GetDroppedFile(void);
 
 /// Image
 
-NAPI bool LoadImageFromFile(Image *image, const char *filePath);
 NAPI bool LoadImage(Image *image, const uint8_t *data, uint32_t width, uint32_t height, uint32_t compAmount);
+NAPI bool LoadImageFromFile(Image *image, const char *filePath);
 NAPI void UnloadImage(Image image);
 
 /// Textures
 
-NAPI bool LoadTextureFromFile(Texture *texture, const char *filePath);
 NAPI bool LoadTexture(Texture *result, const uint8_t *data, uint32_t width, uint32_t height, uint32_t compAmount);
+NAPI bool LoadTextureFromFile(Texture *texture, const char *filePath);
 NAPI void UnloadTexture(Texture texture);
 
 /// Font
 
-NAPI bool LoadFontFromFile(TextFont *font, const char *filePath);
 NAPI bool LoadFont(TextFont *font, const uint8_t *fontBuffer, int fontSize, int codepointAmount, int *codepoints);
+NAPI bool LoadFontFromFile(TextFont *font, const char *filePath);
 NAPI void UnloadFont(TextFont font);
 NAPI Vector2 GetTextDimension(TextFont font, const char *text, int fontSize);
 void DrawTextEx(TextFont font, const char *text, int fontSize, Vector2 pos, Color color);
@@ -412,8 +447,8 @@ void DrawTextEx(TextFont font, const char *text, int fontSize, Vector2 pos, Colo
 /// Shaders
 
 NAPI bool LoadShader(Shader *result, const char *vertSource, const char *fragSource);
-NAPI void UnloadShader(Shader shader);
 NAPI bool LoadShaderFromFile(Shader *result, const char *vertSourceFilePath, const char *fragSourceFilePath);
+NAPI void UnloadShader(Shader shader);
 NAPI Shader GetDefaultShader(void);
 NAPI void SetProjectionMatrix(Matrix projection);
 NAPI void SetModelViewMatrix(Matrix viewModel);

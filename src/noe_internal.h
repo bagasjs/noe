@@ -26,65 +26,12 @@ typedef struct _InputManager {
     } mouse;
 } _InputManager;
 
-typedef struct _RenderVertex {
-    struct { float x, y, z; } pos;
-    struct { float r, g, b, a; } color;
-    struct { float u, v; } texCoords;
-    float textureIndex;
-} _RenderVertex;
-
-typedef struct _BatchRendererState {
-    struct {
-        bool supportVAO;
-    } config;
-
-    uint32_t vaoID, vboID, eboID;
-    Shader defaultShader;
-    Matrix projection;
-    Matrix modelView;
-    Matrix mvp;
-    struct {
-        _RenderVertex data[MAXIMUM_BATCH_RENDERER_VERTICES];
-        uint32_t count;
-    } vertices;
-    struct {
-        uint32_t data[MAXIMUM_BATCH_RENDERER_ELEMENTS];
-        uint32_t count;
-    } elements;
-    struct {
-        uint32_t data[MAXIMUM_BATCH_RENDERER_ACTIVE_TEXTURES];
-        uint32_t count;
-    } activeTextureIDs;
-} _BatchRendererState;
-
-typedef struct _ApplicationConfig {
-    struct {
-        const char *title;
-        uint32_t width, height;
-        bool visible;
-        bool resizable;
-        bool fullScreen;
-        bool decorated;
-    } window;
-    struct {
-        // The context creation will use GLX on Linux X11 Display System or WGL on Windows 
-        // otherwise It will use EGL
-        bool useNative;
-        bool useCoreProfile;
-        bool useOpenglES;
-        bool useDebugContext;
-        bool forward;
-        struct {
-            int major;
-            int minor;
-        } version;
-    } opengl;
-} _ApplicationConfig;
-
 typedef struct _ApplicationState {
     bool initialized;
     _InputManager inputs;
-    _BatchRendererState renderer;
+
+    bool isFileDropped;
+    char droppedFilePath[256]; // currently only supporting 1
 } _ApplicationState;
 
 _ApplicationState *_GetApplicationState(const char *functionName);
@@ -98,7 +45,7 @@ _ApplicationState *_GetApplicationState(const char *functionName);
 ///
 
 // All platform should implement
-bool _InitPlatform(_ApplicationState *app, _ApplicationConfig *config);
+bool _InitPlatform(_ApplicationState *app, ApplicationConfig *config);
 void _DeinitPlatform(_ApplicationState *app);
 void _PollPlatformEvents(_ApplicationState *app);
 void GLSwapBuffers(void);

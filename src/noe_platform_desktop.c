@@ -85,7 +85,7 @@ char *LoadFileText(const char *filePath, size_t *fileSize)
     fseek(f, 0L, SEEK_END);
     size_t filesz = ftell(f);
     fseek(f, 0L, SEEK_SET);
-    char *result = MemoryAlloc(sizeof(char) * (filesz + 1));
+    char *result = NOE_MALLOC(sizeof(char) * (filesz + 1));
     if(!result) {
         TraceLog(LOG_ERROR, "Failed to load file `%s` text content", filePath);
         fclose(f);
@@ -101,7 +101,7 @@ char *LoadFileText(const char *filePath, size_t *fileSize)
 
 void UnloadFileText(char *text)
 {
-    MemoryFree(text);
+    NOE_FREE(text);
 }
 
 uint8_t *LoadFileData(const char *filePath, size_t *fileSize)
@@ -112,7 +112,7 @@ uint8_t *LoadFileData(const char *filePath, size_t *fileSize)
     fseek(f, 0L, SEEK_END);
     size_t filesz = ftell(f);
     fseek(f, 0L, SEEK_SET);
-    uint8_t *result = MemoryAlloc(sizeof(uint8_t) * (filesz + 1));
+    uint8_t *result = NOE_MALLOC(sizeof(uint8_t) * (filesz + 1));
     if(!result) {
         TraceLog(LOG_ERROR, "Failed to load file `%s` data", filePath);
         fclose(f);
@@ -127,18 +127,19 @@ uint8_t *LoadFileData(const char *filePath, size_t *fileSize)
 
 void UnloadFileData(uint8_t *data)
 {
-    MemoryFree(data);
+    NOE_FREE(data);
 }
 
 static _PlatformState PLATFORM = {0};
 
+static void GlfwFileDropCallback(GLFWwindow *window, int count, const char **paths);
 static void GlfwWindowSizeCallback(GLFWwindow *window, int width, int height);
 static void GlfwKeyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
 static void GlfwMouseButtonCallback(GLFWwindow *window, int button, int action, int mods);
 static void GlfwMouseCursorPosCallback(GLFWwindow *window, double x, double y);
 static void GlfwMouseScrollCallback(GLFWwindow *window, double xoffset, double yoffset);
 
-bool _InitPlatform(_ApplicationState *app, _ApplicationConfig *config)
+bool _InitPlatform(_ApplicationState *app, ApplicationConfig *config)
 {
     TRACELOG(LOG_INFO, "Initializing platform (desktop)");
     if(!glfwInit()) {
@@ -163,6 +164,7 @@ bool _InitPlatform(_ApplicationState *app, _ApplicationConfig *config)
     glfwSetMouseButtonCallback(PLATFORM.window.handle, GlfwMouseButtonCallback);
     glfwSetCursorPosCallback(PLATFORM.window.handle, GlfwMouseCursorPosCallback);
     glfwSetScrollCallback(PLATFORM.window.handle, GlfwMouseScrollCallback);
+    glfwSetDropCallback(PLATFORM.window.handle, GlfwFileDropCallback);
     glfwSetWindowUserPointer(PLATFORM.window.handle, app);
 
     glfwMakeContextCurrent(PLATFORM.window.handle);
@@ -270,6 +272,15 @@ static void GlfwMouseCursorPosCallback(GLFWwindow *window, double x, double y)
     _ApplicationState *state = (_ApplicationState *)glfwGetWindowUserPointer(window);
     state->inputs.mouse.currentPosition.x = (float)x;
     state->inputs.mouse.currentPosition.y = (float)y;
+}
+
+static void GlfwFileDropCallback(GLFWwindow *window, int count, const char **paths)
+{
+    if(count > 0) {
+        _ApplicationState *state = (_ApplicationState *)glfwGetWindowUserPointer(window);
+        state->isFileDropped = true;
+        StringCopy(state->droppedFilePath, paths[0], sizeof(char)*256);
+    }
 }
 
 static void GlfwMouseScrollCallback(GLFWwindow *window, double xoffset, double yoffset)

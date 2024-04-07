@@ -8,11 +8,12 @@ all: ./build/test.exe ./build/audiobox.exe
 ./build/audiobox.exe: ./build/cache/audiobox.o ./build/cache/miniaudio.o ./build/cache/nogui.o
 	$(CC) -o $@ $^ -L build -lnoe -lm 
 
+./build/cache/audiobox.o: ./audiobox/audiobox.c
+	$(CC) -I./src/ -c -o $@ $^ 
+
 ./build/cache/nogui.o: ./audiobox/nogui.c
 	$(CC) -I./src/ -c -o $@ $^ 
 
-./build/cache/audiobox.o: ./audiobox/audiobox.c
-	$(CC) -I./src/ -c -o $@ $^ 
 
 ./build/cache/miniaudio.o: ./audiobox/miniaudio.c
 	$(CC) -I./src/ -c -o $@ $^

@@ -24,7 +24,7 @@ bool LoadFont(TextFont *font, const uint8_t *fontBuffer, int fontSize, int codep
     int isCodepointGenerated = 0;
     if(!codepoints) {
         isCodepointGenerated = 1;
-        codepoints = MemoryAlloc(sizeof(int) * codepointAmount);
+        codepoints = NOE_MALLOC(sizeof(int) * codepointAmount);
         for(int i = 0; i < 95; ++i)
             codepoints[i] = 32 + i;
     }
@@ -48,8 +48,8 @@ bool LoadFont(TextFont *font, const uint8_t *fontBuffer, int fontSize, int codep
         bw += roundf(ax * scale);
     }
 
-    uint8_t *bitmap = MemoryAlloc(bw * bh * sizeof(uint8_t));
-    GlyphInfo *chars = MemoryAlloc(sizeof(GlyphInfo) * codepointAmount);
+    uint8_t *bitmap = NOE_MALLOC(bw * bh * sizeof(uint8_t));
+    GlyphInfo *chars = NOE_MALLOC(sizeof(GlyphInfo) * codepointAmount);
 
     ascent = roundf(ascent * scale);
     descent = roundf(descent * scale);
@@ -87,7 +87,7 @@ bool LoadFont(TextFont *font, const uint8_t *fontBuffer, int fontSize, int codep
     descent = roundf(descent * scale);
 
     if(isCodepointGenerated)
-        MemoryFree(codepoints);
+        NOE_FREE(codepoints);
 
     Image atlas;
     atlas.width  = bw;
@@ -99,7 +99,7 @@ bool LoadFont(TextFont *font, const uint8_t *fontBuffer, int fontSize, int codep
 #else
     // Two channels
     atlas.compAmount = 4;
-    atlas.data = (uint8_t *)MemoryAlloc(atlas.width*atlas.height*atlas.compAmount*sizeof(uint8_t));
+    atlas.data = (uint8_t *)NOE_MALLOC(atlas.width*atlas.height*atlas.compAmount*sizeof(uint8_t));
 
     for (int i = 0, k = 0; i < (int)(atlas.width*atlas.height); i++, k += atlas.compAmount) {
         atlas.data[k + 0] = 255;
@@ -107,7 +107,7 @@ bool LoadFont(TextFont *font, const uint8_t *fontBuffer, int fontSize, int codep
         atlas.data[k + 2] = 255;
         atlas.data[k + 3] = ((uint8_t *)bitmap)[i];
     }
-    MemoryFree(bitmap);
+    NOE_FREE(bitmap);
 #endif
 
     font->atlas = atlas;
@@ -116,7 +116,7 @@ bool LoadFont(TextFont *font, const uint8_t *fontBuffer, int fontSize, int codep
 
     if(!LoadTexture(&font->texture, atlas.data, atlas.width, atlas.height, atlas.compAmount)) {
         UnloadImage(font->atlas);
-        MemoryFree(font->glyphs);
+        NOE_FREE(font->glyphs);
         return false;
     }
 
@@ -127,7 +127,7 @@ void UnloadFont(TextFont font)
 {
     UnloadTexture(font.texture);
     UnloadImage(font.atlas);
-    MemoryFree(font.glyphs);
+    NOE_FREE(font.glyphs);
 }
 
 GlyphInfo FindGlyphInfo(TextFont font, int codepoint)

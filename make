@@ -8,7 +8,8 @@ LFLAGS="-lX11 -lm"
 NOE_CFLAGS="-Wall -Wextra -Wpedantic -fPIC -I./src/vendors/stb/ -I./src/vendors/glad/include/ -DNOE_BUILDTYPE_SHAREDLIB"
 NOE_SOURCES=(
     "./src/noe_core.c"
-    "./src/noe_text.c"
+    "./src/noe_renderer.c"
+    "./src/noe_font.c"
 
     "./src/noe_platform_desktop.c"
     "./src/vendors/glad/src/glad.c"
@@ -95,10 +96,10 @@ fi
 
 if [ ! -d $BUILD_DIR/cache/glfw ]; then
     mkdir $BUILD_DIR/cache/glfw
+    echo "--- Compiling glfw ---"
+    compile_sources "$GLFW_CFLAGS" "$BUILD_DIR/cache/glfw" "${GLFW_SOURCES[@]}"
 fi
 
-echo "--- Compiling glfw ---"
-compile_sources "$GLFW_CFLAGS" "$BUILD_DIR/cache/glfw" "${GLFW_SOURCES[@]}"
 
 echo "--- Compiling NOE ---"
 compile_sources "$NOE_CFLAGS" "$BUILD_DIR/cache" "${NOE_SOURCES[@]}"
