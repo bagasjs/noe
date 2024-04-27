@@ -198,25 +198,18 @@ static void setupX11KeyMaps(_PlatformState *platform);
 
 void SetWindowTitle(const char *title)
 {
-    _ApplicationState *app = _GetApplicationState("SetWindowTitle");
-    if(!app) return;
     PLATFORM.window.title = title;
-
     XStoreName(PLATFORM.display.handle, PLATFORM.window.handle, title);
 }
 
 void SetWindowSize(uint32_t width, uint32_t height)
 {
-    _ApplicationState *app = _GetApplicationState("SetWindowSize");
-    if(!app) return;
     PLATFORM.window.width = width;
     PLATFORM.window.height = height;
 }
 
 void SetWindowVisible(bool isVisible)
 {
-    _ApplicationState *app = _GetApplicationState("SetWindowVisible");
-    if(!app) return;
     PLATFORM.window.visible = isVisible;
 
     if(isVisible) 
@@ -227,8 +220,6 @@ void SetWindowVisible(bool isVisible)
 
 void SetWindowResizable(bool isResizable)
 {
-    _ApplicationState *app = _GetApplicationState("SetWindowResizable");
-    if(!app) return;
     PLATFORM.window.resizable = isResizable;
 
     XSizeHints *hints = XAllocSizeHints();

@@ -68,5 +68,4 @@ void SetWindowVisible(bool isVisible);
 void SetWindowResizable(bool isResizable);
 void SetWindowFullscreen(bool isFullscreen);
 
-
 #endif // NOE_INTERNAL_H_

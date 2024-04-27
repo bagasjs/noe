@@ -404,6 +404,8 @@ NAPI void UnloadFileData(uint8_t *data); // not implemented on web
 
 NAPI void SetupWindow(const char *title, uint32_t width, uint32_t height, uint32_t flags); // desktop only
 NAPI void SetupOpenGL(uint32_t versionMajor, uint32_t versionMinor, uint32_t flags);
+NAPI ApplicationConfig GetDefaultApplicationConfig(void);
+NAPI void SetApplicationConfig(ApplicationConfig config);
 NAPI bool InitApplication(void);
 NAPI void DeinitApplication(void);
 
