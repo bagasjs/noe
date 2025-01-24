@@ -140,10 +140,12 @@ enum noe_button {
 };
 
 enum noe_flag {
-    NOE_FLAG_RESIZABLE = (1 << 0),
+    NOE_FLAG_VISIBLE    = (1 << 0),
+    NOE_FLAG_RESIZABLE  = (1 << 0),
     NOE_FLAG_FULLSCREEN = (1 << 1),
-    NOE_FLAG_OPENGL = (1 << 2),
+    NOE_FLAG_USE_OPENGL = (1 << 2),
 };
+#define NOE_FLAG_DEFAULT (NOE_FLAG_VISIBLE | NOE_FLAG_RESIZABLE)
 
 #ifndef NOE_CLITERAL
 #ifdef __cplusplus

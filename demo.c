@@ -1,11 +1,12 @@
 #include "noe.h"
 #include <stdio.h>
 
+#define GAME_TITLE "The Follower"
 #define SPEED 100
 
 int main(void)
 {
-    noe_Context *ctx = noe_init("The Follower", 800, 600, 0);
+    noe_Context *ctx = noe_init(GAME_TITLE, 800, 600, NOE_FLAG_DEFAULT);
 
     noe_Rect enemy = noe_rect(0, 0, 20, 20);
 
@@ -21,7 +22,7 @@ int main(void)
         if(noe_key_pressed(ctx, NOE_KEY_ESCAPE)) break;
 
         if(play) {
-            snprintf(title, sizeof(title), "Automaton");
+            snprintf(title, sizeof(title), GAME_TITLE);
             noe_set_window_title(ctx, title);
 
             noe_Vec2 cursor = noe_cursor_pos(ctx);
