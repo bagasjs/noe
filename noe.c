@@ -1,4 +1,28 @@
+/* 
+** Copyright (c) 2024 bagasjs
+** 
+** Permission is hereby granted, free of charge, to any person obtaining a copy
+** of this software and associated documentation files (the "Software"), to deal
+** in the Software without restriction, including without limitation the rights
+** to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+** copies of the Software, and to permit persons to whom the Software is
+** furnished to do so, subject to the following conditions:
+** 
+** The above copyright notice and this permission notice shall be included in all
+** copies or substantial portions of the Software.
+** 
+** THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+** IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+** FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+** AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+** LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+** OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+** SOFTWARE.
+*/
+
 #include "noe.h"
+#include <math.h>
+#include <stdio.h>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -81,7 +105,7 @@ void noe_destroy_image(noe_Image image)
     NOE_FREE(image.pixels);
 }
 
-static void noe_image_put_pixel(noe_Image image, int x, int y, noe_Color color)
+void noe_image_draw_pixel(noe_Image image, noe_Color color, int x, int y)
 {
     if((0 > x || x > image.w) || (0 > y || y > image.h)) return;
     int index = (image.w * y + x) * g_pixelformatinfos[image.format].channels;
@@ -119,7 +143,7 @@ static void noe_image_put_pixel(noe_Image image, int x, int y, noe_Color color)
     }
 }
 
-static noe_Color noe_image_get_pixel(noe_Image image, int x, int y)
+noe_Color noe_image_get_pixel(noe_Image image, int x, int y)
 {
     if (x < 0 || x >= image.w || y < 0 || y >= image.h) return NOE_BLACK;
     int index = (image.w * y + x) * g_pixelformatinfos[image.format].channels;
@@ -159,60 +183,168 @@ static noe_Color noe_image_get_pixel(noe_Image image, int x, int y)
     return color;
 }
 
-void noe_image_resize(noe_Image *dst, noe_Image src)
+// Helper for bilinear interpolation
+static noe_Color noe_color_interpolate(noe_Color c1, noe_Color c2, float t) 
 {
-    float scale_x = (float)src.w/(float)dst->w;
-    float scale_y = (float)src.h/(float)dst->h;
+    noe_Color result;
+    result.r = (uint8_t)((1.0f - t) * c1.r + t * c2.r);
+    result.g = (uint8_t)((1.0f - t) * c1.g + t * c2.g);
+    result.b = (uint8_t)((1.0f - t) * c1.b + t * c2.b);
+    result.a = (uint8_t)((1.0f - t) * c1.a + t * c2.a);
+    return result;
+}
 
-    for(int y = 0; y < dst->h; ++y) {
-        for(int x = 0; x < dst->w; ++x) {
-            // Map destination pixel (x, y) to source image
-            float src_x = x * scale_x;
-            float src_y = y * scale_y;
+void noe_image_resize(noe_Image *dst, noe_Image src, noe_Rect dstdim, int min, int mag)
+{
+    float scale_x = ((float)dstdim.w)/src.w;
+    float scale_y = ((float)dstdim.h)/src.h;
 
-            // Get the top-left pixel indices in the source image
-            int x1 = (int)src_x;
-            int y1 = (int)src_y;
+    bool x_resize_strat = (scale_x < 1.0f) ? min : mag;
+    bool y_resize_strat = (scale_y < 1.0f) ? min : mag;
 
-            // Ensure the bottom-right pixel indices don't exceed bounds
-            int x2 = (x1 + 1 < src.w) ? x1 + 1 : x1;
-            int y2 = (y1 + 1 < src.h) ? y1 + 1 : y1;
+    for (int dy = 0; dy < dstdim.h; ++dy) {
+        for (int dx = 0; dx < dstdim.w; ++dx) {
+            float sx = ((float)dx + 0.5f) / scale_x - 0.5f;
+            float sy = ((float)dy + 0.5f) / scale_y - 0.5f;
 
-            // Get fractional parts for interpolation
-            float frac_x = src_x - x1;
-            float frac_y = src_y - y1;
+            noe_Color result = {0, 0, 0, 255}; // Assuming RGBA
 
-            // Fetch colors from the four neighbors           
-            noe_Color c11 = noe_image_get_pixel(src, x1, y1); // Top-left
-            noe_Color c12 = noe_image_get_pixel(src, x1, y2); // Bottom-left
-            noe_Color c21 = noe_image_get_pixel(src, x2, y1); // Top-right
-            noe_Color c22 = noe_image_get_pixel(src, x2, y2); // Bottom-right
+            if (x_resize_strat == NOE_RESIZE_NEAREST) {
+                // Nearest neighbor for x
+                int nearest_x = roundf(sx);
+                nearest_x = NOE_CLAMP(nearest_x, 0, src.w - 1);
 
-            // Interpolate along the x-axis for the top and bottom rows
-            noe_Color top = {
-                .r = c11.r * (1 - frac_x) + c21.r * frac_x,
-                .g = c11.g * (1 - frac_x) + c21.g * frac_x,
-                .b = c11.b * (1 - frac_x) + c21.b * frac_x,
-                .a = c11.a * (1 - frac_x) + c21.a * frac_x,
-            };
+                if (y_resize_strat == NOE_RESIZE_NEAREST) {
+                    // Nearest neighbor for y
+                    int nearest_y = roundf(sy);
+                    nearest_y = NOE_CLAMP(nearest_y, 0, src.h - 1);
+                    result = noe_image_get_pixel(src, nearest_x, nearest_y);
+                } else {
+                    // Linear for y
+                    int y0 = (int)sy;
+                    int y1 = y0 + 1;
+                    float ty = sy - y0;
 
-            noe_Color bottom = {
-                .r = c12.r * (1 - frac_x) + c22.r * frac_x,
-                .g = c12.g * (1 - frac_x) + c22.g * frac_x,
-                .b = c12.b * (1 - frac_x) + c22.b * frac_x,
-                .a = c12.a * (1 - frac_x) + c22.a * frac_x,
-            };
+                    y0 = NOE_CLAMP(y0, 0, src.h - 1);
+                    y1 = NOE_CLAMP(y1, 0, src.h - 1);
 
-            // Interpolate along the y-axis to get the final pixel
-            noe_Color result = {
-                .r = top.r * (1 - frac_y) + bottom.r * frac_y,
-                .g = top.g * (1 - frac_y) + bottom.g * frac_y,
-                .b = top.b * (1 - frac_y) + bottom.b * frac_y,
-                .a = top.a * (1 - frac_y) + bottom.a * frac_y,
-            };
+                    noe_Color c0 = noe_image_get_pixel(src, nearest_x, y0);
+                    noe_Color c1 = noe_image_get_pixel(src, nearest_x, y1);
 
-            // Place the resulting pixel in the destination image
-            noe_image_put_pixel(*dst, x, y, result);
+                    result = noe_color_interpolate(c0, c1, ty);
+                }
+            } else {
+                // Linear for x
+                int x0 = (int)sx;
+                int x1 = x0 + 1;
+                float tx = sx - x0;
+
+                x0 = NOE_CLAMP(x0, 0, src.w - 1);
+                x1 = NOE_CLAMP(x1, 0, src.w - 1);
+
+                if (y_resize_strat == NOE_RESIZE_NEAREST) {
+                    // Nearest neighbor for y
+                    int nearest_y = roundf(sy);
+                    nearest_y = (nearest_y < 0) ? 0 : (nearest_y >= src.h ? src.h - 1 : nearest_y);
+
+                    noe_Color c0 = noe_image_get_pixel(src, x0, nearest_y);
+                    noe_Color c1 = noe_image_get_pixel(src, x1, nearest_y);
+
+                    result = noe_color_interpolate(c0, c1, tx);
+                } else {
+                    // Linear for y
+                    int y0 = (int)sy;
+                    int y1 = y0 + 1;
+                    float ty = sy - y0;
+
+                    y0 = NOE_CLAMP(y0, 0, src.h - 1);
+                    y1 = NOE_CLAMP(y1, 0, src.h - 1);
+
+                    noe_Color c00 = noe_image_get_pixel(src, x0, y0);
+                    noe_Color c10 = noe_image_get_pixel(src, x1, y0);
+                    noe_Color c01 = noe_image_get_pixel(src, x0, y1);
+                    noe_Color c11 = noe_image_get_pixel(src, x1, y1);
+
+                    // Interpolate along x-axis
+                    noe_Color cx0 = noe_color_interpolate(c00, c10, tx);
+                    noe_Color cx1 = noe_color_interpolate(c01, c11, tx);
+
+                    // Interpolate along y-axis
+                    result = noe_color_interpolate(cx0, cx1, ty);
+                }
+            }
+
+            noe_image_draw_pixel(*dst, result, dstdim.x + dx, dstdim.y + dy);
+        }
+    }
+}
+
+// void noe_image_resize(noe_Image *dst, noe_Image src)
+// {
+//     float scale_x = (float)src.w/(float)dst->w;
+//     float scale_y = (float)src.h/(float)dst->h;
+// 
+//     for(int y = 0; y < dst->h; ++y) {
+//         for(int x = 0; x < dst->w; ++x) {
+//             // Map destination pixel (x, y) to source image
+//             float src_x = x * scale_x;
+//             float src_y = y * scale_y;
+// 
+//             // Get the top-left pixel indices in the source image
+//             int x1 = (int)src_x;
+//             int y1 = (int)src_y;
+// 
+//             // Ensure the bottom-right pixel indices don't exceed bounds
+//             int x2 = (x1 + 1 < src.w) ? x1 + 1 : x1;
+//             int y2 = (y1 + 1 < src.h) ? y1 + 1 : y1;
+// 
+//             // Get fractional parts for interpolation
+//             float frac_x = src_x - x1;
+//             float frac_y = src_y - y1;
+// 
+//             // Fetch colors from the four neighbors           
+//             noe_Color c11 = noe_image_get_pixel(src, x1, y1); // Top-left
+//             noe_Color c12 = noe_image_get_pixel(src, x1, y2); // Bottom-left
+//             noe_Color c21 = noe_image_get_pixel(src, x2, y1); // Top-right
+//             noe_Color c22 = noe_image_get_pixel(src, x2, y2); // Bottom-right
+// 
+//             // Interpolate along the x-axis for the top and bottom rows
+//             noe_Color top = {
+//                 .r = c11.r * (1 - frac_x) + c21.r * frac_x,
+//                 .g = c11.g * (1 - frac_x) + c21.g * frac_x,
+//                 .b = c11.b * (1 - frac_x) + c21.b * frac_x,
+//                 .a = c11.a * (1 - frac_x) + c21.a * frac_x,
+//             };
+// 
+//             noe_Color bottom = {
+//                 .r = c12.r * (1 - frac_x) + c22.r * frac_x,
+//                 .g = c12.g * (1 - frac_x) + c22.g * frac_x,
+//                 .b = c12.b * (1 - frac_x) + c22.b * frac_x,
+//                 .a = c12.a * (1 - frac_x) + c22.a * frac_x,
+//             };
+// 
+//             // Interpolate along the y-axis to get the final pixel
+//             noe_Color result = {
+//                 .r = top.r * (1 - frac_y) + bottom.r * frac_y,
+//                 .g = top.g * (1 - frac_y) + bottom.g * frac_y,
+//                 .b = top.b * (1 - frac_y) + bottom.b * frac_y,
+//                 .a = top.a * (1 - frac_y) + bottom.a * frac_y,
+//             };
+// 
+//             // Place the resulting pixel in the destination image
+//             noe_image_draw_pixel(*dst, result, x, y);
+//         }
+//     }
+// }
+
+void noe_image_draw_rect(noe_Image image, noe_Color c, noe_Rect r)
+{
+    r = noe_clip_rect(noe_rect(0,0, image.w, image.h), r);
+    int xs = r.x, xd = r.x + r.w;
+    int ys = r.y, yd = r.y + r.h;
+    for(int dy = ys; dy < yd; ++dy) {
+        for(int dx = xs; dx < xd; ++dx) {
+            noe_image_draw_pixel(image, c, dx, dy);
         }
     }
 }
@@ -225,6 +357,14 @@ void noe_image_resize(noe_Image *dst, noe_Image src)
 
 #define NOE_SUPPORTED_KEYS 256
 #define NOE_SUPPORTED_BTNS 8
+
+typedef struct noe_TmpChunk noe_TmpChunk;
+struct noe_TmpChunk {
+    noe_TmpChunk *next;
+    uint32_t capacity;
+    uint32_t count;
+    void *data[];
+};
 
 typedef struct noe_Context {
     bool initialized;
@@ -246,12 +386,6 @@ typedef struct noe_Context {
     double init_time;
     double last_frame_time;
     double target_frame_time;
-
-    struct {
-        uint8_t *buf;
-        uint32_t cap;
-        uint32_t count;
-    } tmp;
 
 #ifdef _WIN32
     LARGE_INTEGER frequency;
@@ -309,45 +443,10 @@ static LRESULT CALLBACK _noe_win32_window_proc(
     noe_Context *ctx = (noe_Context *)GetWindowLongPtr(wnd, GWLP_USERDATA);
 
     switch(msg) {
-        case WM_SIZE:
-            {
-                if(ctx->initialized) {
-                    RECT r;
-                    GetClientRect(wnd, &r);
-                    int new_w = r.right - r.left;
-                    int new_h = r.bottom - r.top;
-                    noe_Image new_canvas = noe_create_image(new_w,new_h,ctx->canvas.format);
-                    noe_image_resize(&new_canvas, ctx->canvas);
-                    noe_destroy_image(ctx->canvas);
-                    ctx->canvas = new_canvas;
-                }
-            }
-            break;
-        case WM_PAINT:
-            {
-                PAINTSTRUCT ps;
-                HDC hdc = BeginPaint(wnd, &ps);
-                BITMAPINFO bmi = {
-                    .bmiHeader.biSize = sizeof(BITMAPINFOHEADER),
-                    .bmiHeader.biBitCount = 32,
-                    .bmiHeader.biCompression = BI_RGB,
-                    .bmiHeader.biPlanes = 1,
-                    .bmiHeader.biWidth = ctx->canvas.w,
-                    .bmiHeader.biHeight = -ctx->canvas.h,
-                };
-                StretchDIBits(hdc, 0, 0, ctx->canvas.w, ctx->canvas.h,
-                        0, 0, ctx->canvas.w, ctx->canvas.h,
-                        ctx->canvas.pixels, &bmi, DIB_RGB_COLORS, SRCCOPY);
-                EndPaint(wnd, &ps);
-            }
-            break;
         case WM_MOUSEMOVE:
             {
-                ctx->prev_cursor_pos = ctx->curr_cursor_pos;
                 ctx->curr_cursor_pos.x = GET_X_LPARAM(lp);
                 ctx->curr_cursor_pos.y = GET_Y_LPARAM(lp);
-                // ctx->curr_cursor_pos.x = NOE_MIN(NOE_MAX(GET_X_LPARAM(lp), 0), ctx->canvas.w);
-                // ctx->curr_cursor_pos.y = NOE_MIN(NOE_MAX(GET_Y_LPARAM(lp), 0), ctx->canvas.h);
             }
             break;
         case WM_LBUTTONDOWN: 
@@ -357,14 +456,37 @@ static LRESULT CALLBACK _noe_win32_window_proc(
         case WM_MBUTTONDOWN: 
         case WM_MBUTTONUP:
             {
-                int button = (msg == WM_LBUTTONDOWN || msg == WM_LBUTTONUP) ? 1 :
-                    (msg == WM_RBUTTONDOWN || msg == WM_RBUTTONUP) ? 2 : 3;
-                if (msg == WM_LBUTTONDOWN || msg == WM_RBUTTONDOWN || msg == WM_MBUTTONDOWN) {
+                int state = 0;
+                int button = 0;
+                switch(msg) {
+                    case WM_LBUTTONDOWN:
+                        state = 1;
+                        button = NOE_BUTTON_LEFT;
+                        break;
+                    case WM_LBUTTONUP:
+                        button = NOE_BUTTON_LEFT;
+                        break;
+                    case WM_RBUTTONDOWN:
+                        state = 1;
+                        button = NOE_BUTTON_RIGHT;
+                        break;
+                    case WM_RBUTTONUP:
+                        button = NOE_BUTTON_RIGHT;
+                        break;
+                    case WM_MBUTTONDOWN:
+                        state = 1;
+                        button = NOE_BUTTON_MIDDLE;
+                        break;
+                    case WM_MBUTTONUP:
+                        button = NOE_BUTTON_MIDDLE;
+                        break;
+                }
+
+                ctx->curr_btn_states[button] = state;
+                if (state) {
                     SetCapture(wnd);
-                    ctx->curr_btn_states[button] = 1;
                 } else {
                     ReleaseCapture();
-                    ctx->curr_btn_states[button] = 0;
                 }
             } break;
         case WM_KEYDOWN:
@@ -398,8 +520,42 @@ static LRESULT CALLBACK _noe_win32_window_proc(
                 if (scancode == 0x136) scancode = 0x36;
                 key = _noe_win32_scancode_mapping[scancode];
 
-                if(0 <= key && key < NOE_SUPPORTED_KEYS) 
+                if(0 <= key && key < NOE_SUPPORTED_KEYS) {
                     ctx->curr_key_states[key] = key_state;
+                }
+            }
+            break;
+        case WM_SIZE:
+            {
+                if(ctx->initialized) {
+                    RECT r;
+                    GetClientRect(wnd, &r);
+                    int new_w = r.right - r.left;
+                    int new_h = r.bottom - r.top;
+                    noe_Image new_canvas = noe_create_image(new_w,new_h,ctx->canvas.format);
+                    noe_Rect dim = noe_rect(0, 0, new_w, new_h);
+                    noe_image_resize(&new_canvas, ctx->canvas, dim, NOE_RESIZE_LINEAR, NOE_RESIZE_NEAREST);
+                    noe_destroy_image(ctx->canvas);
+                    ctx->canvas = new_canvas;
+                }
+            }
+            break;
+        case WM_PAINT:
+            {
+                PAINTSTRUCT ps;
+                HDC hdc = BeginPaint(wnd, &ps);
+                BITMAPINFO bmi = {
+                    .bmiHeader.biSize = sizeof(BITMAPINFOHEADER),
+                    .bmiHeader.biBitCount = 32,
+                    .bmiHeader.biCompression = BI_RGB,
+                    .bmiHeader.biPlanes = 1,
+                    .bmiHeader.biWidth = ctx->canvas.w,
+                    .bmiHeader.biHeight = -ctx->canvas.h,
+                };
+                StretchDIBits(hdc, 0, 0, ctx->canvas.w, ctx->canvas.h,
+                        0, 0, ctx->canvas.w, ctx->canvas.h,
+                        ctx->canvas.pixels, &bmi, DIB_RGB_COLORS, SRCCOPY);
+                EndPaint(wnd, &ps);
             }
             break;
         case WM_CLOSE:
@@ -417,18 +573,19 @@ static LRESULT CALLBACK _noe_win32_window_proc(
 
 noe_Context *noe_init(const char *name, int w, int h, uint8_t flags)
 {
+    (void)flags;
     noe_Context *ctx = NOE_MALLOC(sizeof(*ctx));
     memset(ctx, 0, sizeof(noe_Context));
     if(!ctx) return NULL;
 
     ctx->name = name;
     ctx->title = name;
-    ctx->tmp.buf = NULL;
-    ctx->tmp.count = 0;
-    ctx->tmp.cap = 0;
+
+    // Save previous input states
+    ctx->prev_cursor_pos = ctx->curr_cursor_pos;
     memset(ctx->prev_key_states, 0, sizeof(ctx->prev_key_states));
-    memset(ctx->curr_key_states, 0, sizeof(ctx->curr_key_states));
     memset(ctx->prev_btn_states, 0, sizeof(ctx->prev_btn_states));
+    memset(ctx->curr_key_states, 0, sizeof(ctx->curr_key_states));
     memset(ctx->curr_btn_states, 0, sizeof(ctx->curr_btn_states));
 
 #ifdef _WIN32
@@ -468,34 +625,10 @@ noe_Context *noe_init(const char *name, int w, int h, uint8_t flags)
     return ctx;
 }
 
-static void *noe_tmp_alloc(noe_Context *ctx, uint32_t size)
-{
-    if(ctx->tmp.count + size <= ctx->tmp.cap) {
-        ctx->tmp.cap = ctx->tmp.cap * 2 + size;
-        uint8_t *newbuf = NOE_MALLOC(ctx->tmp.cap);
-        if(!newbuf) 
-            // TODO: Error: Buy More RAM
-            return NULL;
-        memcpy(newbuf,ctx->tmp.buf,ctx->tmp.count);
-        NOE_FREE(ctx->tmp.buf);
-        ctx->tmp.buf = newbuf;
-    }
-    uint8_t *ptr = &ctx->tmp.buf[ctx->tmp.count];
-    memset(ptr, 0, size);
-    ctx->tmp.count += size;
-    return ptr;
-}
-
-static void noe_tmp_reset(noe_Context *ctx)
-{
-    ctx->tmp.count = 0;
-}
-
 void noe_close(noe_Context *ctx)
 {
     if(!ctx) return;
     noe_destroy_image(ctx->canvas);
-    NOE_FREE(ctx->tmp.buf);
     NOE_FREE(ctx);
 }
 
@@ -525,6 +658,14 @@ bool noe_step(noe_Context *ctx, double *dt)
     }
     if(dt) *dt = ctx->last_frame_time - prev;
 
+    ctx->prev_cursor_pos = ctx->curr_cursor_pos;
+    for(int i = 0; i < NOE_SUPPORTED_BTNS; ++i) {
+        ctx->prev_btn_states[i] = ctx->curr_btn_states[i];
+    }
+    for(int i = 0; i < NOE_SUPPORTED_KEYS; ++i) {
+        ctx->prev_key_states[i] = ctx->curr_key_states[i];
+    }
+
 #ifdef _WIN32
     MSG msg;
     while(PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
@@ -542,16 +683,24 @@ void noe_clear_background(noe_Context *ctx, noe_Color color)
     noe_draw_rect(ctx, color, noe_rect(0,0,ctx->canvas.w, ctx->canvas.h));
 }
 
+void noe_draw_pixel(noe_Context *ctx, noe_Color color, int x, int y)
+{
+    noe_image_draw_pixel(ctx->canvas, color, x, y);
+}
+
 void noe_draw_rect(noe_Context *ctx, noe_Color color, noe_Rect r)
 {
-    r = noe_clip_rect(noe_rect(0,0, ctx->canvas.w, ctx->canvas.h), r);
-    int xs = r.x, xd = r.x + r.w;
-    int ys = r.y, yd = r.y + r.h;
-    for(int dy = ys; dy < yd; ++dy) {
-        for(int dx = xs; dx < xd; ++dx) {
-            noe_image_put_pixel(ctx->canvas, dx, dy, color);
-        }
-    }
+    noe_image_draw_rect(ctx->canvas, color, r);
+}
+
+int noe_screen_width(noe_Context *ctx)
+{
+    return ctx->canvas.w;
+}
+
+int noe_screen_height(noe_Context *ctx)
+{
+    return ctx->canvas.h;
 }
 
 bool noe_key_pressed(noe_Context *ctx, int key)
@@ -578,6 +727,30 @@ bool noe_key_up(noe_Context *ctx, int key)
     return ctx->curr_key_states[key] == 0;
 }
 
+bool noe_button_pressed(noe_Context *ctx, int button)
+{
+    if(button < 0 && button > NOE_SUPPORTED_BTNS) return false;
+    return ctx->prev_btn_states[button] == 0 && ctx->curr_btn_states[button] == 1;
+}
+
+bool noe_button_down(noe_Context *ctx, int button)
+{
+    if(button < 0 && button >= NOE_SUPPORTED_BTNS) return false;
+    return ctx->curr_btn_states[button] == 1;
+}
+
+bool noe_button_released(noe_Context *ctx, int button)
+{
+    if(button < 0 && button > NOE_SUPPORTED_BTNS) return false;
+    return ctx->prev_btn_states[button] == 1 && ctx->curr_btn_states[button] == 0;
+}
+
+bool noe_button_up(noe_Context *ctx, int button)
+{
+    if(button < 0 && button > NOE_SUPPORTED_BTNS) return false;
+    return ctx->curr_btn_states[button] == 0;
+}
+
 noe_Vec2 noe_cursor_pos(noe_Context *ctx)
 {
     return ctx->curr_cursor_pos;
@@ -598,27 +771,46 @@ void noe_draw_image(noe_Context *ctx, noe_Image image, int x, int y)
 
     for(int dy = r.y; dy < r.y + r.h; ++dy) {
         for(int dx = r.x; dx < r.x + r.w; ++dx) {
-            noe_image_put_pixel(ctx->canvas, dx, dy, noe_image_get_pixel(image, dx, dy));
+            noe_image_draw_pixel(ctx->canvas, noe_image_get_pixel(image, dx, dy), dx, dy);
         }
     }
 }
 
 void noe_draw_image2(noe_Context *ctx, noe_Image image, noe_Rect src, noe_Rect dst)
 {
-    noe_tmp_reset(ctx);
     const int pixelformat = image.format;
-    const int channels = g_pixelformatinfos[pixelformat].channels;
-    uint8_t *dstbuf = noe_tmp_alloc(ctx, dst.w * dst.h * channels);
-    uint8_t *srcbuf = noe_tmp_alloc(ctx, src.w * src.h * channels);
-
+    const int nchannels = g_pixelformatinfos[pixelformat].channels;
+    // TODO(bagasjs): This is sucks find a way so we allocate incrementally when we need either 
+    //                use arena (it will nice if we have global arena but this will not threadsafe)
+    uint8_t *srcbuf = NOE_MALLOC(src.w * src.h * nchannels);
     noe_Image srci = noe_load_image(srcbuf,src.w,src.h,pixelformat);
-    noe_Image dsti = noe_load_image(dstbuf,dst.w,dst.h,pixelformat);
+
     for(int y = 0; y < src.h; ++y) {
         for(int x = 0; x < src.w; ++x) {
-            noe_image_put_pixel(srci,x,y, noe_image_get_pixel(image, src.x + x, src.y + y));
+            noe_image_draw_pixel(srci, noe_image_get_pixel(image, src.x + x, src.y + y), x,y);
         }
     }
 
-    noe_image_resize(&dsti, srci);
-    noe_draw_image(ctx,dsti,dst.x,dst.y);
+    noe_image_resize(&ctx->canvas, srci, dst, NOE_RESIZE_LINEAR, NOE_RESIZE_NEAREST);
+    NOE_FREE(srcbuf);
+}
+
+void noe_draw_image_scaled_to_screen(noe_Context *ctx, noe_Image image)
+{
+    noe_Rect r = noe_rect(0, 0, ctx->canvas.w, ctx->canvas.h);
+    noe_image_resize(&ctx->canvas, image, r, NOE_RESIZE_LINEAR, NOE_RESIZE_NEAREST);
+}
+
+noe_Font noe_create_font(noe_Image atlas, int codepoint_count)
+{
+    noe_Font font;
+    font.atlas = atlas;
+    font.codepoints = NOE_MALLOC(sizeof(*font.codepoints)*codepoint_count);
+    font.codepoints_count = codepoint_count;
+    return font;
+}
+
+void noe_destroy_font(noe_Font font)
+{
+    NOE_FREE(font.codepoints);
 }

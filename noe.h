@@ -1,13 +1,9 @@
-////////////////////////////////////////////////////
-/// 
-/// `noe.h` - A small 2D game library
-///
-///   TODOs
-///   1. Adding text rendering support
-///   2. Adding Linux Platform
-///   3. Building a game
-///   4. Hardware rendering (OpenGL 3.3)
-///   5. 3D Rendering APIs
+/*
+** Copyright (c) 2025 bagasjs
+**
+** This library is free software; you can redistribute it and/or modify it
+** under the terms of the MIT license. See the bottom of this file for details.
+*/
 
 #ifndef NOE_H_
 #define NOE_H_
@@ -145,6 +141,12 @@ enum noe_flag {
     NOE_FLAG_FULLSCREEN = (1 << 1),
     NOE_FLAG_USE_OPENGL = (1 << 2),
 };
+
+enum noe_resize_strategy {
+    NOE_RESIZE_NEAREST = 0,
+    NOE_RESIZE_LINEAR = 1,
+};
+
 #define NOE_FLAG_DEFAULT (NOE_FLAG_VISIBLE | NOE_FLAG_RESIZABLE)
 
 #ifndef NOE_CLITERAL
@@ -157,6 +159,7 @@ enum noe_flag {
 
 #define NOE_MIN(a, b) ((a) < (b) ? (a) : (b))
 #define NOE_MAX(a, b) ((a) > (b) ? (a) : (b))
+#define NOE_CLAMP(v, min, max) NOE_MIN(NOE_MAX((v), (min)), (max))
 #define NOE_SWAP(T, a, b) do { T t = (a); (a) = (b); (b) = t; } while(0)
 
 #if !defined(NOE_MALLOC) && !defined(NOE_FREE)
@@ -172,7 +175,7 @@ enum noe_flag {
 typedef struct { float x, y; } noe_Vec2;
 typedef struct { float x, y, z; } noe_Vec3;
 typedef struct { float x, y, z, w; } noe_Vec4;
-typedef union { noe_Vec4 rows[4]; float es[4]; } noe_Mat4;
+typedef union { noe_Vec4 rows[4]; float es[4*4]; } noe_Mat4;
 typedef struct { int x, y, w, h; } noe_Rect;
 typedef struct { uint8_t r, g, b, a; } noe_Color;
 
@@ -182,6 +185,18 @@ typedef struct {
     int format;
     int w, h; 
 } noe_Image;
+
+typedef struct noe_Glyph {
+    int codepoint;
+    float l, t;
+    float r, b;
+} noe_Glyph;
+
+typedef struct noe_Font {
+    noe_Image atlas;
+    noe_Glyph *codepoints;
+    uint32_t codepoints_count;
+} noe_Font;
 
 #define noe_rgb(R, G, B) noe_rgba(R, G, B, 0xFF)
 #define noe_rgba(R, G, B, A) NOE_CLITERAL(noe_Color){ .r = (R), .g = (G), .b = (B), .a = (A) }
@@ -193,8 +208,8 @@ typedef struct {
 #define NOE_BLACK noe_rgba(0x00, 0x00, 0x00, 0xFF)
 #define NOE_WHITE noe_rgba(0xFF, 0xFF, 0xFF, 0xFF)
 #define NOE_RED   noe_rgba(0xFF, 0x00, 0x00, 0xFF)
-#define NOE_BLUE  noe_rgba(0x00, 0xFF, 0x00, 0xFF)
-#define NOE_GREEN noe_rgba(0x00, 0x00, 0xFF, 0xFF)
+#define NOE_GREEN noe_rgba(0x00, 0xFF, 0x00, 0xFF)
+#define NOE_BLUE  noe_rgba(0x00, 0x00, 0xFF, 0xFF)
 
 typedef struct noe_Context noe_Context;
 
@@ -202,7 +217,6 @@ void noe_sleep(int milis);
 double noe_gettime(void);
 
 noe_Rect noe_clip_rect(noe_Rect outer, noe_Rect inner);
-noe_Color noe_blend_color(noe_Color a, noe_Color b);
 
 noe_Context *noe_init(const char *name, int w, int h, uint8_t flags);
 void noe_close(noe_Context *ctx);
@@ -224,15 +238,20 @@ bool noe_screen_resized(noe_Context *ctx);
 noe_Image noe_load_image(void *data, int width, int height, int format);
 noe_Image noe_create_image(int width, int height, int format);
 void noe_destroy_image(noe_Image image);
-void noe_image_resize(noe_Image *dst, noe_Image src);
-
-int noe_measure_text(const char *text, int font_size);
+void noe_image_resize(noe_Image *dst, noe_Image src, noe_Rect r, int min, int mag);
+void noe_image_draw_pixel(noe_Image image, noe_Color color, int x, int y);
+noe_Color noe_image_get_pixel(noe_Image image, int x, int y);
+void noe_image_draw_rect(noe_Image image, noe_Color c, noe_Rect r);
 
 void noe_clear_background(noe_Context *ctx, noe_Color color);
 void noe_draw_rect(noe_Context *ctx, noe_Color color, noe_Rect r);
 void noe_draw_image(noe_Context *ctx, noe_Image image, int x, int y);
 void noe_draw_image2(noe_Context *ctx, noe_Image image, noe_Rect src, noe_Rect dst);
-void noe_draw_text(noe_Context *ctx, const char *text, int x, int y);
+void noe_draw_image_scaled_to_screen(noe_Context *ctx, noe_Image image);
+void noe_draw_pixel(noe_Context *ctx, noe_Color color, int x, int y);
+
+noe_Font noe_create_font(noe_Image atlas, int codepoint_count);
+void noe_destroy_font(noe_Font);
 
 /////////////////////////////
 ///
@@ -268,3 +287,34 @@ static inline noe_Vec2 noe_vec2_normalize(noe_Vec2 a) {
 
 #endif // NOE
 
+///////////////////////////////////////////////////
+///
+/// TODOs
+/// 1. Adding text rendering support
+/// 2. Adding Linux Platform
+/// 3. Building a game
+/// 4. Hardware rendering (OpenGL 3.3)
+/// 5. 3D Rendering APIs
+///
+
+/* 
+** Copyright (c) 2024 bagasjs
+** 
+** Permission is hereby granted, free of charge, to any person obtaining a copy
+** of this software and associated documentation files (the "Software"), to deal
+** in the Software without restriction, including without limitation the rights
+** to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+** copies of the Software, and to permit persons to whom the Software is
+** furnished to do so, subject to the following conditions:
+** 
+** The above copyright notice and this permission notice shall be included in all
+** copies or substantial portions of the Software.
+** 
+** THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+** IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+** FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+** AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+** LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+** OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+** SOFTWARE.
+*/

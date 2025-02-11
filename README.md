@@ -1,5 +1,7 @@
 # Noe
-A small game engine written in C
+A small game engine written in C. I took some inspiration from this two library
+- [github.com/raysan5/raylib](https://github.com/raysan5/raylib)
+- [github.com/rxi/kit](https://github.com/rxi/kit)
 
 ## Example
 ```c
