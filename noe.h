@@ -12,6 +12,11 @@
 #include <stdbool.h>
 #include <math.h>
 
+#ifndef NOE_ASSERT
+#include <assert.h>
+#define NOE_ASSERT(cond) assert(cond)
+#endif
+
 enum noe_key {
     NOE_KEY_NONE = 0,
 
@@ -115,6 +120,7 @@ enum noe_pixelformat {
     NOE_PIXELFORMAT_R8G8B8,
     NOE_PIXELFORMAT_B8G8R8A8,
     NOE_PIXELFORMAT_B8G8R8,
+    NOE_PIXELFORMAT_GRAYSCALE,
 
     _COUNT_NOE_PIXELFORMATS,
 };
@@ -220,6 +226,7 @@ noe_Rect noe_clip_rect(noe_Rect outer, noe_Rect inner);
 
 noe_Context *noe_init(const char *name, int w, int h, uint8_t flags);
 void noe_close(noe_Context *ctx);
+void noe_set_should_close(noe_Context *ctx, bool should_close);
 void noe_set_window_title(noe_Context *ctx, const char *title);
 bool noe_step(noe_Context *ctx, double *deltaTime);
 bool noe_key_pressed(noe_Context *ctx, int key);
@@ -294,7 +301,6 @@ static inline noe_Vec2 noe_vec2_normalize(noe_Vec2 a) {
 /// 2. Adding Linux Platform
 /// 3. Building a game
 /// 4. Hardware rendering (OpenGL 3.3)
-/// 5. 3D Rendering APIs
 ///
 
 /* 

@@ -1,23 +1,8 @@
-/* 
-** Copyright (c) 2024 bagasjs
-** 
-** Permission is hereby granted, free of charge, to any person obtaining a copy
-** of this software and associated documentation files (the "Software"), to deal
-** in the Software without restriction, including without limitation the rights
-** to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-** copies of the Software, and to permit persons to whom the Software is
-** furnished to do so, subject to the following conditions:
-** 
-** The above copyright notice and this permission notice shall be included in all
-** copies or substantial portions of the Software.
-** 
-** THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-** IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-** FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-** AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-** LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-** OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-** SOFTWARE.
+/*
+** Copyright (c) 2025 bagasjs
+**
+** This library is free software; you can redistribute it and/or modify it
+** under the terms of the MIT license. See the bottom of this file for details.
 */
 
 #include "noe.h"
@@ -55,6 +40,7 @@ static const struct noe_PixelFormatInfo g_pixelformatinfos[_COUNT_NOE_PIXELFORMA
     [NOE_PIXELFORMAT_R8G8B8] = { .channels = 3, },
     [NOE_PIXELFORMAT_B8G8R8A8] = { .channels = 4, },
     [NOE_PIXELFORMAT_B8G8R8] = { .channels = 3, },
+    [NOE_PIXELFORMAT_GRAYSCALE] = { .channels = 1, },
 };
 
 noe_Image noe_load_image(void *data, int width, int height, int format)
@@ -114,6 +100,13 @@ void noe_image_draw_pixel(noe_Image image, noe_Color color, int x, int y)
                 image.pixels[index + 3] = color.a;
             }
             break;
+        case NOE_PIXELFORMAT_GRAYSCALE:
+            {
+                image.pixels[index] = (uint8_t )(0.299f * color.r 
+                        + 0.587f * color.g 
+                        + 0.114f * color.g);
+            }
+            break;
     }
 }
 
@@ -123,6 +116,13 @@ noe_Color noe_image_get_pixel(noe_Image image, int x, int y)
     int index = (image.w * y + x) * g_pixelformatinfos[image.format].channels;
     noe_Color color;
     switch(image.format) {
+        case NOE_PIXELFORMAT_GRAYSCALE:
+            {
+                color.r = image.pixels[index];
+                color.g = image.pixels[index];
+                color.b = image.pixels[index];
+                color.a = 255;
+            } break;
         case NOE_PIXELFORMAT_R8G8B8:
             {
                 color.r = image.pixels[index + 0];
@@ -336,7 +336,7 @@ typedef struct noe_PlatformContext noe_PlatformContext;
 
 typedef struct noe_Context {
     bool initialized;
-    bool should_quit;
+    bool should_close;
 
     const char *name;
     const char *title;
@@ -379,7 +379,7 @@ noe_Context *noe_init(const char *name, int w, int h, uint8_t flags)
 
     ctx->name = name;
     ctx->title = name;
-    ctx->should_quit = false;
+    ctx->should_close = false;
 
     // Save previous input states
     ctx->prev_cursor_pos = ctx->curr_cursor_pos;
@@ -410,6 +410,11 @@ void noe_close(noe_Context *ctx)
     NOE_FREE(ctx);
 }
 
+void noe_set_should_close(noe_Context *ctx, bool should_close)
+{
+    ctx->should_close = should_close;
+}
+
 bool noe_step(noe_Context *ctx, double *dt)
 {
     /// Draw to window
@@ -436,12 +441,13 @@ bool noe_step(noe_Context *ctx, double *dt)
     }
 
     noe_platform_poll_inputs(ctx);
-    return !ctx->should_quit;
+    return !ctx->should_close;
 }
 
 void noe_clear_background(noe_Context *ctx, noe_Color color)
 {
-    noe_draw_rect(ctx, color, noe_rect(0,0,ctx->canvas.w, ctx->canvas.h));
+    noe_draw_rect(ctx, color, 
+            noe_rect(0,0,ctx->canvas.w, ctx->canvas.h));
 }
 
 void noe_draw_pixel(noe_Context *ctx, noe_Color color, int x, int y)
@@ -835,7 +841,7 @@ void noe_platform_poll_inputs(noe_Context *ctx)
     MSG msg;
     while(PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
         if(msg.message == WM_QUIT) {
-            ctx->should_quit = true;
+            ctx->should_close = true;
         }
         TranslateMessage(&msg);
         DispatchMessage(&msg);
@@ -853,4 +859,27 @@ void noe_set_window_title(noe_Context *ctx, const char *title)
 }
 
 #endif // _WIN32
+
+
+/* 
+** Copyright (c) 2024 bagasjs
+** 
+** Permission is hereby granted, free of charge, to any person obtaining a copy
+** of this software and associated documentation files (the "Software"), to deal
+** in the Software without restriction, including without limitation the rights
+** to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+** copies of the Software, and to permit persons to whom the Software is
+** furnished to do so, subject to the following conditions:
+** 
+** The above copyright notice and this permission notice shall be included in all
+** copies or substantial portions of the Software.
+** 
+** THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+** IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+** FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+** AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+** LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+** OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+** SOFTWARE.
+*/
 
