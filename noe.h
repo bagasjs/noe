@@ -194,8 +194,8 @@ typedef struct {
 
 typedef struct noe_Glyph {
     int codepoint;
-    float l, t;
-    float r, b;
+    int l, t;
+    int r, b;
 } noe_Glyph;
 
 typedef struct noe_Font {
@@ -221,6 +221,7 @@ typedef struct noe_Context noe_Context;
 
 void noe_sleep(int milis);
 double noe_gettime(void);
+int noe_pixelformat_channel_amount(int format);
 
 noe_Rect noe_clip_rect(noe_Rect outer, noe_Rect inner);
 
@@ -242,9 +243,13 @@ int noe_screen_width(noe_Context *ctx);
 int noe_screen_height(noe_Context *ctx);
 bool noe_screen_resized(noe_Context *ctx);
 
+noe_Font noe_load_font(noe_Image image, noe_Glyph *codepoints, uint32_t codepoints_count);
+void noe_unload_font(noe_Font font);
+float noe_font_measure_text(noe_Font font, const char *text, int fontsize);
+
 noe_Image noe_load_image(void *data, int width, int height, int format);
 noe_Image noe_create_image(int width, int height, int format);
-void noe_destroy_image(noe_Image image);
+void noe_unload_image(noe_Image image);
 void noe_image_resize(noe_Image *dst, noe_Image src, noe_Rect r, int min, int mag);
 void noe_image_draw_pixel(noe_Image image, noe_Color color, int x, int y);
 noe_Color noe_image_get_pixel(noe_Image image, int x, int y);
@@ -256,6 +261,7 @@ void noe_draw_image(noe_Context *ctx, noe_Image image, int x, int y);
 void noe_draw_image2(noe_Context *ctx, noe_Image image, noe_Rect src, noe_Rect dst);
 void noe_draw_image_scaled_to_screen(noe_Context *ctx, noe_Image image);
 void noe_draw_pixel(noe_Context *ctx, noe_Color color, int x, int y);
+void noe_draw_text(noe_Context *ctx, noe_Font font, noe_Color color, const char *text, int x, int y, int fontsize);
 
 noe_Font noe_create_font(noe_Image atlas, int codepoint_count);
 void noe_destroy_font(noe_Font);

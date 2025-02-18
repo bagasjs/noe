@@ -6,9 +6,9 @@ CFLAGS := $(COMMON_CFLAGS)
 LFLAGS := -lgdi32 -luser32
 
 .PHONY: all
-all: build/game.exe build/paint.exe build/example_image_cropping.exe build/fontatlasgen.exe
+all: build/game.exe build/paint.exe build/example_image_cropping.exe build/example_text_drawing.exe
 
-build/fontatlasgen.exe: ./noe.c ./examples/fontatlasgen.c
+build/example_text_drawing.exe: ./noe.c ./noe_ext.c ./examples/example_text_drawing.c
 	$(CC) $(CFLAGS) -D_CRT_SECURE_NO_WARNINGS -o $@ $^ $(LFLAGS)
 
 build/game.exe: ./noe.c ./examples/game.c

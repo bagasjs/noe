@@ -9,7 +9,6 @@
 #include <stdio.h>
 #include <string.h>
 
-
 //////////////////////////////////////////////////////
 ///
 /// Utility APIs
@@ -43,6 +42,14 @@ static const struct noe_PixelFormatInfo g_pixelformatinfos[_COUNT_NOE_PIXELFORMA
     [NOE_PIXELFORMAT_GRAYSCALE] = { .channels = 1, },
 };
 
+int noe_pixelformat_channel_amount(int format)
+{
+    if(0 <= format && format < _COUNT_NOE_PIXELFORMATS) 
+        return g_pixelformatinfos[format].channels;
+    else
+        return -1;
+}
+
 noe_Image noe_load_image(void *data, int width, int height, int format)
 {
     noe_Image res;
@@ -60,7 +67,7 @@ noe_Image noe_create_image(int width, int height, int pixelformat)
     return noe_load_image(pixels, width, height, pixelformat);
 }
 
-void noe_destroy_image(noe_Image image)
+void noe_unload_image(noe_Image image)
 {
     NOE_FREE(image.pixels);
 }
@@ -168,7 +175,7 @@ static noe_Color noe_color_interpolate(noe_Color c1, noe_Color c2, float t)
     return result;
 }
 
-void noe_image_resize_fill_and_crop(noe_Image dst, noe_Image src)
+static void noe_image_resize_fill_and_crop(noe_Image dst, noe_Image src)
 {
     for(int dy = 0; dy < dst.h; ++dy) {
         for(int dx = 0; dx < dst.w; ++dx) {
@@ -420,7 +427,7 @@ void noe_close(noe_Context *ctx)
 {
     if(!ctx) return;
     noe_platform_close(ctx);
-    noe_destroy_image(ctx->canvas);
+    noe_unload_image(ctx->canvas);
     NOE_FREE(ctx);
 }
 
@@ -591,9 +598,55 @@ noe_Font noe_create_font(noe_Image atlas, int codepoint_count)
     return font;
 }
 
-void noe_destroy_font(noe_Font font)
+noe_Font noe_load_font(noe_Image image, noe_Glyph *codepoints, uint32_t codepoints_count)
+{
+    noe_Font result;
+    result.atlas = image;
+    result.codepoints_count = codepoints_count;
+    result.codepoints = codepoints;
+    return result;
+}
+
+void noe_unload_font(noe_Font font)
 {
     NOE_FREE(font.codepoints);
+}
+
+void noe_draw_text(noe_Context *ctx, noe_Font font, noe_Color color, const char *text, int x, int y, int fontsize)
+{
+    float scale = (float)fontsize/font.atlas.h;
+    size_t textLength = strlen(text);
+    noe_Vec2 pos = {x, y};
+
+    for(int i = 0; i < (int)textLength; ++i) {
+        noe_Glyph cp = font.codepoints[text[i] - 32];
+        noe_Rect src;
+        src.x = cp.l;
+        src.y = cp.t;
+        src.w = (float)cp.r - cp.l;
+        src.h = (float)cp.b - cp.t;
+
+        noe_Rect dst;
+        dst.x = pos.x;
+        dst.y = pos.y;
+        dst.w = (cp.r-cp.l)*scale;
+        dst.h = font.atlas.h*scale;
+        noe_draw_image2(ctx, font.atlas, src, dst);
+        pos.x += dst.w;
+    }
+}
+
+float noe_font_measure_text(noe_Font font, const char *text, int fontsize)
+{
+    float scale = (float)fontsize/font.atlas.h;
+    size_t textLength = strlen(text);
+    float width = 0.0f;
+
+    for(int i = 0; i < (int)textLength; ++i) {
+        noe_Glyph cp = font.codepoints[text[i] - 32];
+        width += (cp.r - cp.l) * scale;
+    }
+    return width;
 }
 
 ///////////////////////////////////////////////////////////
@@ -773,7 +826,7 @@ static LRESULT CALLBACK _noe_win32_window_proc(
                     // // Old code
                     // noe_Rect dim = noe_rect(0, 0, new_w, new_h);
                     // noe_image_resize(&new_canvas, ctx->canvas, dim, NOE_RESIZE_LINEAR, NOE_RESIZE_NEAREST);
-                    // noe_destroy_image(ctx->canvas);
+                    // noe_unload_image(ctx->canvas);
                     // // End of Old code
 
                     // TODO(bagasjs): This kind of resizing might be not what we wanted.

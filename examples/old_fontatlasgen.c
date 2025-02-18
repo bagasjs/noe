@@ -27,7 +27,6 @@ struct font_atlas {
 
 struct font_atlas load_font_atlas(const uint8_t *font_data, int fontsz, int codepoint_amount, int *codepoints)
 {
-    struct font_atlas result;
     stbtt_fontinfo info;
  
     if (!stbtt_InitFont(&info, font_data, 0))
@@ -102,6 +101,7 @@ struct font_atlas load_font_atlas(const uint8_t *font_data, int fontsz, int code
     if(codepoint_generated)
         free(codepoints);
 
+    struct font_atlas result;
     result.width = bw;
     result.data = bitmap;
     result.height = bh;
