@@ -40,7 +40,7 @@ void app_update(App *app)
             "%s - W(%d,%d) C(%d,%d)", WINDOW_TITLE, 
             noe_screen_width(app->ctx), 
             noe_screen_height(app->ctx), 
-            xpos, ypos);
+            xpos + 1, ypos + 1);
     noe_set_window_title(app->ctx, app->title);
 
     if(noe_key_pressed(app->ctx, NOE_KEY_S)) {
@@ -63,6 +63,8 @@ void app_update(App *app)
     noe_clear_background(app->ctx, NOE_WHITE); 
     if(noe_button_down(app->ctx, NOE_BUTTON_LEFT)) 
         noe_image_draw_pixel(app->canvas, app->fg, xpos, ypos);
+    if(noe_button_down(app->ctx, NOE_BUTTON_RIGHT)) 
+        noe_image_draw_pixel(app->canvas, app->bg, xpos, ypos);
     noe_draw_image_scaled_to_screen(app->ctx, app->canvas);
 }
 

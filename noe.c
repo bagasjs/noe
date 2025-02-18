@@ -168,6 +168,20 @@ static noe_Color noe_color_interpolate(noe_Color c1, noe_Color c2, float t)
     return result;
 }
 
+void noe_image_resize_fill_and_crop(noe_Image dst, noe_Image src)
+{
+    for(int dy = 0; dy < dst.h; ++dy) {
+        for(int dx = 0; dx < dst.w; ++dx) {
+            int sx = dx;
+            int sy = dy;
+            if(dx > src.w) sx = src.w - 1;
+            if(dy > src.h) sy = src.h - 1;
+            noe_Color color = noe_image_get_pixel(src, sx, sy);
+            noe_image_draw_pixel(dst, color, dx, dy);
+        }
+    }
+}
+
 void noe_image_resize(noe_Image *dst, noe_Image src, noe_Rect dstdim, int min, int mag)
 {
     float scale_x = ((float)dstdim.w)/src.w;
@@ -756,9 +770,16 @@ static LRESULT CALLBACK _noe_win32_window_proc(
                     int new_w = r.right - r.left;
                     int new_h = r.bottom - r.top;
                     noe_Image new_canvas = noe_create_image(new_w,new_h,ctx->canvas.format);
-                    noe_Rect dim = noe_rect(0, 0, new_w, new_h);
-                    noe_image_resize(&new_canvas, ctx->canvas, dim, NOE_RESIZE_LINEAR, NOE_RESIZE_NEAREST);
-                    noe_destroy_image(ctx->canvas);
+                    // // Old code
+                    // noe_Rect dim = noe_rect(0, 0, new_w, new_h);
+                    // noe_image_resize(&new_canvas, ctx->canvas, dim, NOE_RESIZE_LINEAR, NOE_RESIZE_NEAREST);
+                    // noe_destroy_image(ctx->canvas);
+                    // // End of Old code
+
+                    // TODO(bagasjs): This kind of resizing might be not what we wanted.
+                    // Since it will stretch the content of the image. What we want might be
+                    // just fill (if resizing up) or cropping (if resizing down)
+                    noe_image_resize_fill_and_crop(new_canvas, ctx->canvas);
                     ctx->canvas = new_canvas;
                 }
             }

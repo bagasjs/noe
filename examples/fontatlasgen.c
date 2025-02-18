@@ -115,7 +115,7 @@ int main(void)
     long size;
     unsigned char* fontBuffer;
     
-    FILE* fontFile = fopen("./firacode.ttf", "rb");
+    FILE* fontFile = fopen("./res/firacode.ttf", "rb");
     fseek(fontFile, 0, SEEK_END);
     size = ftell(fontFile); /* how long is the file ? */
     fseek(fontFile, 0, SEEK_SET); /* reset */
@@ -126,8 +126,8 @@ int main(void)
     fclose(fontFile);
 
     struct font_atlas atlas = load_font_atlas(fontBuffer, 64, 0, NULL);
-    stbi_write_png("out.png", atlas.width, atlas.height, 1, atlas.data, atlas.width);
-    printf("TEST\n");
+    // stbi_write_png("out.png", atlas.width, atlas.height, 1, atlas.data, atlas.width);
+    // printf("TEST\n");
 
     noe_Context *c = noe_init("Font atlas generation", 800, 600, NOE_FLAG_DEFAULT);
     noe_Image img = noe_load_image((uint8_t*)atlas.data, atlas.width, atlas.height, NOE_PIXELFORMAT_GRAYSCALE);
@@ -140,6 +140,7 @@ int main(void)
     noe_Vec2 pos = {0.0f, 0.0f};
 
     while(noe_step(c, NULL)) {
+        noe_clear_background(c, NOE_BLACK);
         for(int i = 0; i < (int)textLength; ++i) {
             struct glyph cp = atlas.chars[text[i] - 32];
 

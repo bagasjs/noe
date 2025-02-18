@@ -150,7 +150,7 @@ enum noe_flag {
 
 enum noe_resize_strategy {
     NOE_RESIZE_NEAREST = 0,
-    NOE_RESIZE_LINEAR = 1,
+    NOE_RESIZE_LINEAR,
 };
 
 #define NOE_FLAG_DEFAULT (NOE_FLAG_VISIBLE | NOE_FLAG_RESIZABLE)
